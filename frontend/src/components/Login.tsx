@@ -23,8 +23,8 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     setLoading(true);
 
     const url = isLoginMode
-      ? 'http://localhost:3000/auth/login'
-      : 'http://localhost:3000/auth/register';
+      ? 'http://16.112.61.17:3000/auth/login'
+      : 'http://16.112.61.17:3000/auth/register';
 
     const body = isLoginMode
       ? { email, password }

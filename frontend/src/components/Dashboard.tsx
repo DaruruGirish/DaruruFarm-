@@ -213,7 +213,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     e.stopPropagation();
     if (!window.confirm('Delete this photo from the gallery?')) return;
     try {
-      const response = await fetch(`http://localhost:3000/gallery/${id}`, {
+      const response = await fetch(`http://16.112.61.17:3000/gallery/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -255,7 +255,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   // Fetch API Data
   const fetchData = async () => {
     try {
-      const profileRes = await fetch('http://localhost:3000/auth/profile', {
+      const profileRes = await fetch('http://16.112.61.17:3000/auth/profile', {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
 
@@ -270,13 +270,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
       setProfile(profileData);
 
       const [farmsRes, expensesRes, activitiesRes, galleryRes, diseaseRes, contactRes, dashboardRes] = await Promise.all([
-        fetch('http://localhost:3000/farms', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('http://localhost:3000/expenses', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('http://localhost:3000/daily-activities', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('http://localhost:3000/gallery', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('http://localhost:3000/disease-management', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('http://localhost:3000/contact', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('http://localhost:3000/dashboard', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('http://16.112.61.17:3000/farms', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('http://16.112.61.17:3000/expenses', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('http://16.112.61.17:3000/daily-activities', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('http://16.112.61.17:3000/gallery', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('http://16.112.61.17:3000/disease-management', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('http://16.112.61.17:3000/contact', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('http://16.112.61.17:3000/dashboard', { headers: { 'Authorization': `Bearer ${token}` } }),
       ]);
 
       if (farmsRes.ok) setFarms(await farmsRes.json());
@@ -301,37 +301,37 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
   // Refresh lists
   const refreshFarms = async () => {
-    const res = await fetch('http://localhost:3000/farms', { headers: { 'Authorization': `Bearer ${token}` } });
+    const res = await fetch('http://16.112.61.17:3000/farms', { headers: { 'Authorization': `Bearer ${token}` } });
     if (res.ok) setFarms(await res.json());
   };
 
   const refreshExpenses = async () => {
-    const res = await fetch('http://localhost:3000/expenses', { headers: { 'Authorization': `Bearer ${token}` } });
+    const res = await fetch('http://16.112.61.17:3000/expenses', { headers: { 'Authorization': `Bearer ${token}` } });
     if (res.ok) setExpenses(await res.json());
   };
 
   const refreshActivities = async () => {
-    const res = await fetch('http://localhost:3000/daily-activities', { headers: { 'Authorization': `Bearer ${token}` } });
+    const res = await fetch('http://16.112.61.17:3000/daily-activities', { headers: { 'Authorization': `Bearer ${token}` } });
     if (res.ok) setActivities(await res.json());
   };
 
   const refreshGallery = async () => {
-    const res = await fetch('http://localhost:3000/gallery', { headers: { 'Authorization': `Bearer ${token}` } });
+    const res = await fetch('http://16.112.61.17:3000/gallery', { headers: { 'Authorization': `Bearer ${token}` } });
     if (res.ok) setGalleryImages(await res.json());
   };
 
   const refreshDiseases = async () => {
-    const res = await fetch('http://localhost:3000/disease-management', { headers: { 'Authorization': `Bearer ${token}` } });
+    const res = await fetch('http://16.112.61.17:3000/disease-management', { headers: { 'Authorization': `Bearer ${token}` } });
     if (res.ok) setDiseaseEvents(await res.json());
   };
 
   const refreshSupportHistory = async () => {
-    const res = await fetch('http://localhost:3000/contact', { headers: { 'Authorization': `Bearer ${token}` } });
+    const res = await fetch('http://16.112.61.17:3000/contact', { headers: { 'Authorization': `Bearer ${token}` } });
     if (res.ok) setContactInquiries(await res.json());
   };
 
   const refreshDashboardData = async () => {
-    const res = await fetch('http://localhost:3000/dashboard', { headers: { 'Authorization': `Bearer ${token}` } });
+    const res = await fetch('http://16.112.61.17:3000/dashboard', { headers: { 'Authorization': `Bearer ${token}` } });
     if (res.ok) setDashboardData(await res.json());
   };
 
@@ -364,7 +364,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     };
 
     try {
-      const url = editingFarm ? `http://localhost:3000/farms/${editingFarm.id}` : 'http://localhost:3000/farms';
+      const url = editingFarm ? `http://16.112.61.17:3000/farms/${editingFarm.id}` : 'http://16.112.61.17:3000/farms';
       const method = editingFarm ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -389,7 +389,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   const handleDeleteFarm = async (id: number) => {
     if (!window.confirm('Delete farm holding? All connected logs will be archived.')) return;
     try {
-      const response = await fetch(`http://localhost:3000/farms/${id}`, {
+      const response = await fetch(`http://16.112.61.17:3000/farms/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -416,7 +416,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     const body = { amount, category: formExpCategory, notes: formExpNotes, date: formExpDate };
 
     try {
-      const url = editingExpense ? `http://localhost:3000/expenses/${editingExpense.id}` : 'http://localhost:3000/expenses';
+      const url = editingExpense ? `http://16.112.61.17:3000/expenses/${editingExpense.id}` : 'http://16.112.61.17:3000/expenses';
       const method = editingExpense ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -441,7 +441,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   const handleDeleteExpense = async (id: number) => {
     if (!window.confirm('Remove this expense entry?')) return;
     try {
-      const response = await fetch(`http://localhost:3000/expenses/${id}`, {
+      const response = await fetch(`http://16.112.61.17:3000/expenses/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -475,7 +475,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     };
 
     try {
-      const url = editingActivity ? `http://localhost:3000/daily-activities/${editingActivity.id}` : 'http://localhost:3000/daily-activities';
+      const url = editingActivity ? `http://16.112.61.17:3000/daily-activities/${editingActivity.id}` : 'http://16.112.61.17:3000/daily-activities';
       const method = editingActivity ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -500,7 +500,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   const handleDeleteActivity = async (id: number) => {
     if (!window.confirm('Remove this activity log?')) return;
     try {
-      const response = await fetch(`http://localhost:3000/daily-activities/${id}`, {
+      const response = await fetch(`http://16.112.61.17:3000/daily-activities/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -529,7 +529,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     if (uploadFarmId) formData.append('farmId', uploadFarmId);
 
     try {
-      const response = await fetch('http://localhost:3000/gallery/upload', {
+      const response = await fetch('http://16.112.61.17:3000/gallery/upload', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
@@ -575,7 +575,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     formData.append('farmId', diseaseFarmId);
 
     try {
-      const response = await fetch('http://localhost:3000/disease-management/upload', {
+      const response = await fetch('http://16.112.61.17:3000/disease-management/upload', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
@@ -598,7 +598,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     e.stopPropagation();
     if (!window.confirm('Delete disease warning?')) return;
     try {
-      const response = await fetch(`http://localhost:3000/disease-management/${id}`, {
+      const response = await fetch(`http://16.112.61.17:3000/disease-management/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -630,7 +630,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     };
 
     try {
-      const response = await fetch('http://localhost:3000/contact', {
+      const response = await fetch('http://16.112.61.17:3000/contact', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1021,7 +1021,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                           >
                             {alert.filename ? (
                               <img
-                                src={`http://localhost:3000/uploads/${alert.filename}`}
+                                src={`http://16.112.61.17:3000/uploads/${alert.filename}`}
                                 alt={alert.disease}
                                 className="w-10 h-10 rounded-md object-cover border border-zinc-800"
                               />
@@ -1566,7 +1566,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                       >
                         <div className="h-[200px] overflow-hidden relative bg-[#090d16]">
                           <img
-                            src={`http://localhost:3000/uploads/${img.filename}`}
+                            src={`http://16.112.61.17:3000/uploads/${img.filename}`}
                             alt={img.caption}
                             loading="lazy"
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -1648,7 +1648,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                         >
                           <div className="h-[170px] overflow-hidden relative bg-[#090d16]">
                             <img
-                              src={`http://localhost:3000/uploads/${event.filename}`}
+                              src={`http://16.112.61.17:3000/uploads/${event.filename}`}
                               alt={event.diseaseName}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                             />
@@ -2347,7 +2347,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
               <X className="w-6 h-6" />
             </button>
             <img
-              src={`http://localhost:3000/uploads/${activeLightboxImage.filename}`}
+              src={`http://16.112.61.17:3000/uploads/${activeLightboxImage.filename}`}
               alt={activeLightboxImage.caption || activeLightboxImage.diseaseName}
               className="w-full max-h-[70vh] object-contain rounded-lg border border-zinc-900 shadow-2xl"
             />
