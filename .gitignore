@@ -1,0 +1,22 @@
+# Dependency folders
+node_modules/
+
+# Build folders
+dist/
+build/
+out/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Databases & local uploads
+uploads/
+db-data/
+
+# OS/System files
+.DS_Store
+Thumbs.db

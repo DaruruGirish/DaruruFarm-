@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # 1. MySQL Database Service
+  db:
+    image: mysql:8
+    container_name: daruru-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: daruru_farm
+    ports:
+      - "3306:3306" # Expose MySQL on the host machine (e.g., for MySQL Workbench)
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. NestJS Backend API Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: daruru-backend
+    restart: always
+    env_file:
+      - ./backend/.env.docker
+    ports:
+      - "3000:3000" # Expose the API to the host machine
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # 3. React Frontend Nginx Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: daruru-frontend
+    restart: always
+    ports:
+      - "5173:80" # Map container port 80 (Nginx) to host port 5173
+    depends_on:
+      - backend
+
+volumes:
+  db-data:

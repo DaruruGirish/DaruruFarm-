@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    @apply bg-[#05060b] text-zinc-100 font-sans antialiased;
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.06) 0px, transparent 50%),
+      radial-gradient(at 50% 0%, rgba(139, 92, 246, 0.05) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(59, 130, 246, 0.04) 0px, transparent 50%);
+    background-attachment: fixed;
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  #root {
+    @apply w-full min-h-screen flex flex-col;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}
+
+/* Custom premium scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.15);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.3);
+}
+
+/* Glassmorphism utility helpers */
+.glass-panel {
+  background: rgba(6, 7, 12, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.glass-card {
+  background: rgba(10, 11, 18, 0.65);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.02);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card:hover {
+  background: rgba(10, 11, 18, 0.85);
+  border-color: rgba(99, 102, 241, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px -15px rgba(99, 102, 241, 0.15);
+}
+
+/* Linear-style gradient border */
+.border-gradient {
+  position: relative;
+}
+.border-gradient::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(to bottom right, rgba(99, 102, 241, 0.22), rgba(139, 92, 246, 0.04));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Dotted Grid Layout background */
+.dot-grid {
+  background-image: radial-gradient(rgba(99, 102, 241, 0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
