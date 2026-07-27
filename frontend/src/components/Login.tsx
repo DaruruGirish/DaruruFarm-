@@ -22,12 +22,12 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     setSuccess(null);
     setLoading(true);
 
-    const url = isLoginMode 
-      ? 'http://localhost:3000/auth/login' 
+    const url = isLoginMode
+      ? 'http://localhost:3000/auth/login'
       : 'http://localhost:3000/auth/register';
 
-    const body = isLoginMode 
-      ? { email, password } 
+    const body = isLoginMode
+      ? { email, password }
       : { name, email, password };
 
     try {
@@ -74,12 +74,12 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="w-full min-h-screen bg-[#05060b] flex items-center justify-center p-6 select-none relative overflow-hidden dot-grid">
+    <div className="w-full min-h-screen bg-[#05060b] flex items-center justify-center p-6 select-none relative overflow-hidden">
       {/* Background ambient glows */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-10 w-[300px] h-[300px] bg-violet-500/5 rounded-full blur-[100px] pointer-events-none" />
 
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
@@ -99,7 +99,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
         <AnimatePresence mode="wait">
           {error && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
@@ -111,7 +111,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           )}
 
           {success && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
@@ -204,8 +204,8 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
         <div className="mt-6 pt-5 border-t border-zinc-900/60 text-center text-xs text-zinc-500 font-medium">
           <span>{isLoginMode ? "Don't have an account? " : "Already have an account? "}</span>
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={toggleMode}
             className="text-zinc-300 hover:text-white font-semibold transition-colors duration-150 cursor-pointer"
           >

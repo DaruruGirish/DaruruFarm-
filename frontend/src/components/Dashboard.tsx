@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  LogOut, User as UserIcon, Shield, LayoutDashboard, Map as MapIcon, Sprout, 
-  Trees, MapPin, Plus, Edit2, Trash2, X, 
-  CloudRain, Cloud, Sun, Droplets, Wind, AlertTriangle, 
+import {
+  LogOut, User as UserIcon, Shield, LayoutDashboard, Map as MapIcon, Sprout,
+  Trees, MapPin, Plus, Edit2, Trash2, X,
+  CloudRain, Cloud, Sun, Droplets, Wind, AlertTriangle,
   Activity, DollarSign, Search, Pencil,
   ClipboardList, Image as ImageIcon, Upload, Camera, Bug, ArrowUpRight, ArrowDownRight, Menu,
   HelpCircle, Phone, Mail, Calendar, MessageSquare, Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { 
+import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line
 } from 'recharts';
@@ -84,12 +84,12 @@ interface ContactInquiry {
 }
 
 const EXPENSE_CATEGORIES = [
-  'Fertilizer', 'Pesticides', 'Electricity', 'Diesel', 'Water', 
+  'Fertilizer', 'Pesticides', 'Electricity', 'Diesel', 'Water',
   'Workers', 'Equipment', 'Transportation', 'Miscellaneous'
 ];
 
 const ACTIVITY_TYPES = [
-  'Irrigation', 'Fertilization', 'Pesticide Application', 'Harvesting', 
+  'Irrigation', 'Fertilization', 'Pesticide Application', 'Harvesting',
   'Pruning', 'Planting', 'Maintenance', 'Other'
 ];
 
@@ -182,10 +182,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<Array<{ sender: 'user' | 'bot'; text: string; time: Date }>>([
-    { 
-      sender: 'bot', 
-      text: 'Hi! I am the Daruru AI Assistant. Ask me anything about your crop holdings, weather alerts, daily operation logs, or 3-way expense splits.', 
-      time: new Date() 
+    {
+      sender: 'bot',
+      text: 'Hi! I am the Daruru AI Assistant. Ask me anything about your crop holdings, weather alerts, daily operation logs, or 3-way expense splits.',
+      time: new Date()
     }
   ]);
   const [chatTyping, setChatTyping] = useState(false);
@@ -632,7 +632,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     try {
       const response = await fetch('http://localhost:3000/contact', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
@@ -664,10 +664,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     // Simulate bot response after 1.2s
     setTimeout(() => {
       setChatTyping(false);
-      
+
       let reply = "I am currently in sandbox demo mode. My integration with the Gemini LLM cognitive agent will be finalized shortly!";
       const query = userMessage.toLowerCase();
-      
+
       if (query.includes('hello') || query.includes('hi') || query.includes('hey')) {
         reply = "Hello there! I am your Daruru Assistant. How can I help you analyze your holdings today?";
       } else if (query.includes('expens') || query.includes('split') || query.includes('ledger')) {
@@ -679,7 +679,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
       } else if (query.includes('weather') || query.includes('temp')) {
         reply = `Current telemetry weather at your node reads ${dashboardData?.weather?.temp}°C with ${dashboardData?.weather?.condition || 'calm condition'}.`;
       }
-      
+
       setChatMessages(prev => [...prev, { sender: 'bot', text: reply, time: new Date() }]);
     }, 1200);
   };
@@ -766,14 +766,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
   return (
     <div className="w-full min-h-screen bg-[#05060b] text-zinc-100 flex flex-col md:flex-row relative dot-grid">
-      
+
       {/* Mobile Top Header */}
       <header className="md:hidden w-full glass-panel border-b border-zinc-900/60 px-5 py-4 flex items-center justify-between z-40 sticky top-0">
         <div className="flex items-center gap-2">
           <Sprout className="w-6 h-6 text-indigo-400 animate-pulse" />
           <span className="font-bold text-md tracking-tight text-white">Daruru Cockpit</span>
         </div>
-        <button 
+        <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="p-1.5 rounded-lg border border-zinc-800 bg-zinc-950 text-zinc-300 hover:text-white"
         >
@@ -824,8 +824,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                   }}
                   className={`
                     w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 cursor-pointer
-                    ${isActive 
-                      ? 'bg-indigo-650 hover:bg-indigo-600 text-white font-bold shadow-[0_1px_2px_rgba(99,102,241,0.15)] border border-indigo-500/30' 
+                    ${isActive
+                      ? 'bg-indigo-650 hover:bg-indigo-600 text-white font-bold shadow-[0_1px_2px_rgba(99,102,241,0.15)] border border-indigo-500/30'
                       : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/40'}
                   `}
                 >
@@ -843,7 +843,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
             <span className="text-sm font-bold text-zinc-200 leading-none mb-1">{profile?.name}</span>
             <span className="text-xs text-zinc-500 truncate">{profile?.email}</span>
           </div>
-          <button 
+          <button
             onClick={onLogout}
             className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-zinc-950 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 text-zinc-400 border border-zinc-900 text-xs font-semibold transition-all duration-150 cursor-pointer"
           >
@@ -864,11 +864,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
             className="space-y-8"
           >
-            
+
             {/* OVERVIEW PANEL */}
             {activeTab === 'overview' && (
               <>
-                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                   <div>
                     <h1 className="text-3xl font-extrabold tracking-tight text-white bg-gradient-to-r from-zinc-100 to-zinc-400 bg-clip-text text-transparent">Analysis</h1>
                     <p className="text-zinc-500 text-sm font-medium mt-1">Live telemetry feeding from registered farm nodes.</p>
@@ -881,10 +881,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     { label: 'Total Acres', value: totalAcres, icon: Sprout, color: 'text-violet-400 bg-violet-500/5 border-violet-500/10' },
                     { label: 'Total Plants', value: totalTrees.toLocaleString(), icon: Trees, color: 'text-fuchsia-400 bg-fuchsia-500/5 border-fuchsia-500/10' },
                     { label: 'Crop Start Date', value: farms.length > 0 ? new Date(farms[0].cropSeasonStartTime).toLocaleDateString() : 'N/A', icon: Calendar, color: 'text-indigo-400 bg-indigo-500/5 border-indigo-500/10' },
-                    { 
-                      label: 'July Expenses', 
-                      value: `$${(dashboardData?.metrics?.expenses?.value || 0).toLocaleString()}`, 
-                      icon: DollarSign, 
+                    {
+                      label: 'July Expenses',
+                      value: `$${(dashboardData?.metrics?.expenses?.value || 0).toLocaleString()}`,
+                      icon: DollarSign,
                       color: 'text-indigo-400 bg-indigo-500/5 border-indigo-500/10',
                       trend: dashboardData?.metrics?.expenses?.change
                     },
@@ -895,9 +895,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                         <div className="flex items-baseline gap-2">
                           <span className="text-2xl font-bold text-white tracking-tight">{stat.value}</span>
                           {stat.trend !== undefined && (
-                            <span className={`inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                              stat.trend >= 0 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            }`}>
+                            <span className={`inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-full ${stat.trend >= 0 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                              }`}>
                               {stat.trend >= 0 ? <ArrowUpRight className="w-3 h-3 mr-0.5" /> : <ArrowDownRight className="w-3 h-3 mr-0.5" />}
                               {Math.abs(stat.trend)}%
                             </span>
@@ -925,8 +924,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                           <AreaChart data={dashboardData.charts.expenseTrend} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                             <defs>
                               <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2}/>
-                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} />
+                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                               </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="#13141f" vertical={false} />
@@ -976,7 +975,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                         </div>
                         {getWeatherIcon(dashboardData.weather.condition)}
                       </div>
-                      
+
                       <div className="my-auto py-2">
                         <div className="flex items-baseline gap-2">
                           <span className="text-5xl font-extrabold text-white tracking-tight">{dashboardData.weather.temp}°</span>
@@ -1015,15 +1014,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     <div className="flex-1 overflow-y-auto space-y-2 pr-1">
                       {dashboardData?.alerts?.length > 0 ? (
                         dashboardData.alerts.slice(0, 3).map((alert: any) => (
-                          <div 
+                          <div
                             key={alert.id}
                             onClick={() => alert.filename && setActiveLightboxImage({ ...alert, caption: `${alert.disease} detected on ${alert.crop}` })}
                             className="bg-[#0b0c10]/40 hover:bg-[#0b0c10]/80 border border-zinc-900 p-2.5 rounded-lg flex items-center gap-3 transition-colors duration-150 cursor-pointer"
                           >
                             {alert.filename ? (
-                              <img 
-                                src={`http://localhost:3000/uploads/${alert.filename}`} 
-                                alt={alert.disease} 
+                              <img
+                                src={`http://localhost:3000/uploads/${alert.filename}`}
+                                alt={alert.disease}
                                 className="w-10 h-10 rounded-md object-cover border border-zinc-800"
                               />
                             ) : (
@@ -1035,9 +1034,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                               <p className="text-xs font-bold text-white truncate">{alert.disease}</p>
                               <p className="text-[10px] text-zinc-500 truncate mt-0.5">{alert.crop} • {alert.location}</p>
                             </div>
-                            <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                              alert.severity === 'high' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'
-                            }`}>{alert.severity}</span>
+                            <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${alert.severity === 'high' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'
+                              }`}>{alert.severity}</span>
                           </div>
                         ))
                       ) : (
@@ -1106,7 +1104,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                           const isPest = act.activityType === 'Pesticide Application' || (act.pesticideName && act.pesticideName !== 'None');
                           return isPest && actDate >= oneWeekAgo;
                         }).map(act => (
-                          <div 
+                          <div
                             key={act.id}
                             className="bg-[#0b0c10]/40 border border-zinc-900 p-2.5 rounded-lg space-y-1.5"
                           >
@@ -1141,7 +1139,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     <h1 className="text-2xl font-bold tracking-tight text-white bg-gradient-to-r from-zinc-100 to-zinc-400 bg-clip-text text-transparent">Registered Holdings</h1>
                     <p className="text-zinc-500 text-sm font-medium mt-1">Manage and inspect physical holdings parameters.</p>
                   </div>
-                  <button 
+                  <button
                     onClick={() => {
                       setEditingFarm(null);
                       setFormName('');
@@ -1167,7 +1165,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     </div>
                     <h3 className="text-base font-bold text-white">No registered holdings found</h3>
                     <p className="text-sm text-zinc-500 mt-1 max-w-[320px] mx-auto">Create and structure your first crop holding boundary parameters.</p>
-                    <button 
+                    <button
                       onClick={() => setIsModalOpen(true)}
                       className="mt-4 bg-indigo-650 hover:bg-indigo-600 border border-indigo-500/30 text-white px-4 py-2 rounded-lg text-sm font-semibold cursor-pointer"
                     >
@@ -1210,7 +1208,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                             <span className="text-xs font-semibold text-zinc-400 mt-0.5">{new Date(farm.cropSeasonStartTime).toLocaleDateString()}</span>
                           </div>
                           <div className="flex gap-2">
-                            <button 
+                            <button
                               onClick={() => {
                                 setEditingFarm(farm);
                                 setFormName(farm.name);
@@ -1226,7 +1224,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleDeleteFarm(farm.id)}
                               className="p-2 rounded-lg border border-zinc-900 hover:border-red-500/20 bg-zinc-950/60 text-zinc-455 hover:text-red-400 transition-all cursor-pointer"
                             >
@@ -1249,7 +1247,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     <h1 className="text-2xl font-bold tracking-tight text-white bg-gradient-to-r from-zinc-100 to-zinc-400 bg-clip-text text-transparent">Expenses</h1>
                     <p className="text-zinc-500 text-sm font-medium mt-1">Audit, register, and compile operational expenditure parameters.</p>
                   </div>
-                  <button 
+                  <button
                     onClick={() => {
                       setEditingExpense(null);
                       setFormExpAmount('');
@@ -1270,7 +1268,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                 <div className="flex flex-col sm:flex-row gap-4 bg-zinc-950/40 p-4 rounded-xl border border-zinc-900/60">
                   <div className="relative flex-1">
                     <Search className="absolute left-3.5 text-zinc-500 w-4 h-4 top-1/2 -translate-y-1/2" />
-                    <input 
+                    <input
                       type="text"
                       className="w-full bg-[#0d0e12]/60 border border-zinc-900 focus:border-zinc-800 rounded-lg py-2 pl-10 pr-4 text-xs text-white placeholder-zinc-600 outline-none"
                       placeholder="Search items..."
@@ -1325,7 +1323,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                             <td className="p-4 font-bold text-indigo-400">${Number(exp.amount).toFixed(2)}</td>
                             <td className="p-4 text-right">
                               <div className="inline-flex gap-2">
-                                <button 
+                                <button
                                   onClick={() => {
                                     setEditingExpense(exp);
                                     setFormExpAmount(exp.amount.toString());
@@ -1339,7 +1337,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                                 >
                                   <Pencil className="w-3.5 h-3.5" />
                                 </button>
-                                <button 
+                                <button
                                   onClick={() => handleDeleteExpense(exp.id)}
                                   className="p-1.5 rounded bg-zinc-900 border border-zinc-850 text-zinc-450 hover:text-red-450 cursor-pointer"
                                 >
@@ -1396,7 +1394,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     <h1 className="text-2xl font-bold tracking-tight text-white bg-gradient-to-r from-zinc-100 to-zinc-400 bg-clip-text text-transparent">Daily Operations</h1>
                     <p className="text-zinc-500 text-sm font-medium mt-1">Audit task assignments, spraying protocols, yields, and structures.</p>
                   </div>
-                  <button 
+                  <button
                     onClick={() => {
                       setEditingActivity(null);
                       setFormActType('Irrigation');
@@ -1419,7 +1417,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                 <div className="flex flex-col sm:flex-row gap-4 bg-zinc-950/40 p-4 rounded-xl border border-zinc-900/60">
                   <div className="relative flex-1">
                     <Search className="absolute left-3.5 text-zinc-500 w-4 h-4 top-1/2 -translate-y-1/2" />
-                    <input 
+                    <input
                       type="text"
                       className="w-full bg-[#0d0e12]/60 border border-zinc-900 focus:border-zinc-800 rounded-lg py-2 pl-10 pr-4 text-xs text-white placeholder-zinc-600 outline-none"
                       placeholder="Search descriptions..."
@@ -1455,7 +1453,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                       <div key={act.id} className="relative group">
                         {/* Timeline Bullet */}
                         <div className="absolute -left-[31px] top-1.5 w-2.5 h-2.5 rounded-full bg-zinc-800 border border-[#05060b] group-hover:bg-indigo-500 transition-colors duration-150" />
-                        
+
                         <div className="glass-card border border-zinc-900/60 rounded-xl p-5 hover:border-indigo-500/20 transition-all duration-300">
                           <div className="flex justify-between items-start gap-4 mb-3">
                             <div className="space-y-1">
@@ -1468,7 +1466,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                               <span className="text-[10px] text-zinc-600 block">{new Date(act.date).toLocaleDateString()}</span>
                             </div>
                             <div className="flex gap-2">
-                              <button 
+                              <button
                                 onClick={() => {
                                   setEditingActivity(act);
                                   setFormActType(act.activityType);
@@ -1485,7 +1483,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                               >
                                 <Pencil className="w-3 h-3" />
                               </button>
-                              <button 
+                              <button
                                 onClick={() => handleDeleteActivity(act.id)}
                                 className="p-1.5 rounded bg-zinc-955 border border-zinc-900 text-zinc-400 hover:text-red-400 cursor-pointer"
                               >
@@ -1520,7 +1518,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     <h1 className="text-2xl font-bold tracking-tight text-white bg-gradient-to-r from-zinc-100 to-zinc-400 bg-clip-text text-transparent">Holdings Gallery</h1>
                     <p className="text-zinc-500 text-sm font-medium mt-1">Upload and catalog photographs representing crop stages.</p>
                   </div>
-                  <button 
+                  <button
                     onClick={() => {
                       setSelectedFile(null);
                       setUploadCaption('');
@@ -1561,20 +1559,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
                     {filteredGalleryImages.map(img => (
-                      <div 
-                        key={img.id} 
+                      <div
+                        key={img.id}
                         onClick={() => setActiveLightboxImage(img)}
                         className="glass-card rounded-xl border border-zinc-900/60 overflow-hidden relative group cursor-pointer hover:border-indigo-500/20 transition-all duration-300"
                       >
                         <div className="h-[200px] overflow-hidden relative bg-[#090d16]">
-                          <img 
-                            src={`http://localhost:3000/uploads/${img.filename}`} 
-                            alt={img.caption} 
+                          <img
+                            src={`http://localhost:3000/uploads/${img.filename}`}
+                            alt={img.caption}
                             loading="lazy"
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           />
                           <div className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button 
+                            <button
                               onClick={(e) => handleDeleteImage(img.id, e)}
                               className="p-1.5 rounded-lg bg-red-500 text-white shadow-md hover:bg-red-650 cursor-pointer"
                             >
@@ -1606,7 +1604,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     <h1 className="text-2xl font-bold tracking-tight text-white bg-gradient-to-r from-zinc-100 to-zinc-400 bg-clip-text text-transparent">Crop Disease Tracker</h1>
                     <p className="text-zinc-500 text-sm font-medium mt-1">Register incidents and analyze weather telemetry parameters recorded at detection.</p>
                   </div>
-                  <button 
+                  <button
                     onClick={openDiseaseModal}
                     className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-[0_0_15px_rgba(99,102,241,0.25)] hover:shadow-[0_0_25px_rgba(99,102,241,0.45)] hover:scale-[1.02] active:scale-[0.98] cursor-pointer transition-all duration-300 flex items-center gap-2 border border-indigo-500/30"
                   >
@@ -1643,26 +1641,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     {filteredDiseases.map(event => {
                       const isHighSeverity = event.temp > 30 || event.humidity > 80;
                       return (
-                        <div 
+                        <div
                           key={event.id}
                           onClick={() => setActiveLightboxImage({ ...event, caption: `${event.diseaseName} on ${event.farm?.name}` })}
                           className="glass-card rounded-xl border border-zinc-900/60 overflow-hidden relative group cursor-pointer hover:border-indigo-500/20 transition-all duration-300"
                         >
                           <div className="h-[170px] overflow-hidden relative bg-[#090d16]">
-                            <img 
-                              src={`http://localhost:3000/uploads/${event.filename}`} 
-                              alt={event.diseaseName} 
+                            <img
+                              src={`http://localhost:3000/uploads/${event.filename}`}
+                              alt={event.diseaseName}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                             />
                             <div className="absolute top-2.5 left-2.5 z-10">
-                              <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${
-                                isHighSeverity ? 'bg-red-500 text-white shadow-md' : 'bg-amber-500 text-white shadow-md'
-                              }`}>
+                              <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${isHighSeverity ? 'bg-red-500 text-white shadow-md' : 'bg-amber-500 text-white shadow-md'
+                                }`}>
                                 {isHighSeverity ? 'High Danger' : 'Warning'}
                               </span>
                             </div>
                             <div className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                              <button 
+                              <button
                                 onClick={(e) => handleDeleteDisease(event.id, e)}
                                 className="p-1.5 rounded-lg bg-red-650 text-white shadow-md hover:bg-red-750 cursor-pointer"
                               >
@@ -1720,8 +1717,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                       </div>
                       <div>
                         <h4 className="text-sm font-bold text-white">Email Inquiries</h4>
-                        <a 
-                          href="mailto:darurugirish@gmail.com" 
+                        <a
+                          href="mailto:darurugirish@gmail.com"
                           className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold block mt-1 transition-colors"
                         >
                           darurugirish@gmail.com
@@ -1736,8 +1733,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                       </div>
                       <div>
                         <h4 className="text-sm font-bold text-white">Direct Hotline</h4>
-                        <a 
-                          href="tel:9391177307" 
+                        <a
+                          href="tel:9391177307"
                           className="text-xs text-violet-400 hover:text-violet-300 font-semibold block mt-1 transition-colors"
                         >
                           +91 93911 77307
@@ -1764,7 +1761,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                   <div className="lg:col-span-2 space-y-6">
                     <div className="glass-card rounded-xl border border-zinc-900/60 p-6 space-y-6">
                       <h3 className="text-base font-bold text-white border-b border-zinc-900/60 pb-3">Submit support ticket</h3>
-                      
+
                       {contactFormError && (
                         <div className="p-3 bg-red-500/5 border border-red-500/20 text-xs text-red-400 rounded-lg">
                           {contactFormError}
@@ -1775,28 +1772,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-1.5">
                             <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Your Name</label>
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
                               className="w-full bg-[#0d0e12]/60 border border-zinc-900 rounded-lg py-2.5 px-3 text-xs text-zinc-400 outline-none select-none pointer-events-none"
-                              value={profile?.name || ''} 
-                              disabled 
+                              value={profile?.name || ''}
+                              disabled
                             />
                           </div>
                           <div className="space-y-1.5">
                             <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Email Address</label>
-                            <input 
-                              type="text" 
+                            <input
+                              type="text"
                               className="w-full bg-[#0d0e12]/60 border border-zinc-900 rounded-lg py-2.5 px-3 text-xs text-zinc-400 outline-none select-none pointer-events-none"
-                              value={profile?.email || ''} 
-                              disabled 
+                              value={profile?.email || ''}
+                              disabled
                             />
                           </div>
                         </div>
 
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Subject / Concern</label>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white placeholder-zinc-700 outline-none"
                             placeholder="E.g., Drip line calibration error, new holding limit"
                             value={contactSubject}
@@ -1807,7 +1804,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Detailed Message</label>
-                          <textarea 
+                          <textarea
                             className="w-full min-h-[120px] bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white placeholder-zinc-700 outline-none resize-none"
                             placeholder="Describe your inquiry or requested credentials here..."
                             value={contactMessage}
@@ -1817,8 +1814,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                         </div>
 
                         <div className="flex justify-end pt-2">
-                          <button 
-                            type="submit" 
+                          <button
+                            type="submit"
                             disabled={contactSubmitting}
                             className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-lg text-xs font-bold shadow-[0_0_15px_rgba(99,102,241,0.25)] hover:shadow-[0_0_25px_rgba(99,102,241,0.45)] hover:scale-[1.02] active:scale-[0.98] cursor-pointer transition-all duration-300 flex items-center justify-center border border-indigo-500/30"
                           >
@@ -1860,7 +1857,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
                 <div className="glass-card border border-zinc-900 rounded-2xl p-6 max-w-2xl space-y-6">
                   <h2 className="text-base font-bold text-white border-b border-zinc-900/60 pb-3">Session Profile</h2>
-                  
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div>
                       <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider">Account Name</span>
@@ -1898,79 +1895,79 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
           <div className="glass-panel w-full max-w-[480px] rounded-2xl border-gradient shadow-2xl p-6 relative">
             <button onClick={() => setIsModalOpen(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white cursor-pointer"><X className="w-5 h-5" /></button>
             <h2 className="text-lg font-bold text-white mb-5">{editingFarm ? 'Update Farm Holding' : 'Register New Farm Holding'}</h2>
-            
+
             {formError && <div className="p-3 bg-red-500/5 border border-red-500/20 text-xs text-red-400 rounded-lg mb-4">{formError}</div>}
-            
+
             <form onSubmit={handleFarmSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Farm Name</label>
-                <input 
-                  type="text" 
-                  className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white placeholder-zinc-700 outline-none" 
+                <input
+                  type="text"
+                  className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white placeholder-zinc-700 outline-none"
                   placeholder="E.g., North Valley Orchards"
-                  value={formName} 
-                  onChange={(e) => setFormName(e.target.value)} 
-                  required 
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  required
                 />
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Address Location</label>
-                <input 
-                  type="text" 
-                  className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white placeholder-zinc-700 outline-none" 
+                <input
+                  type="text"
+                  className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white placeholder-zinc-700 outline-none"
                   placeholder="E.g., 551 Sector B, California"
-                  value={formAddress} 
-                  onChange={(e) => setFormAddress(e.target.value)} 
-                  required 
+                  value={formAddress}
+                  onChange={(e) => setFormAddress(e.target.value)}
+                  required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Total Acreage</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     step="any"
-                    className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white outline-none" 
+                    className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white outline-none"
                     placeholder="E.g., 42.5"
-                    value={formTotalAcres} 
-                    onChange={(e) => setFormTotalAcres(e.target.value)} 
-                    required 
+                    value={formTotalAcres}
+                    onChange={(e) => setFormTotalAcres(e.target.value)}
+                    required
                   />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Number of Trees</label>
-                  <input 
-                    type="number" 
-                    className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white outline-none" 
+                  <input
+                    type="number"
+                    className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white outline-none"
                     placeholder="E.g., 850"
-                    value={formNumberOfTrees} 
-                    onChange={(e) => setFormNumberOfTrees(e.target.value)} 
-                    required 
+                    value={formNumberOfTrees}
+                    onChange={(e) => setFormNumberOfTrees(e.target.value)}
+                    required
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Crop Variety</label>
-                <input 
-                  type="text" 
-                  className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white placeholder-zinc-700 outline-none" 
+                <input
+                  type="text"
+                  className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white placeholder-zinc-700 outline-none"
                   placeholder="E.g., Honeycrisp Apples"
-                  value={formCropVariety} 
-                  onChange={(e) => setFormCropVariety(e.target.value)} 
-                  required 
+                  value={formCropVariety}
+                  onChange={(e) => setFormCropVariety(e.target.value)}
+                  required
                 />
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Crop Season Start</label>
-                <input 
-                  type="datetime-local" 
-                  className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white outline-none" 
-                  value={formCropSeasonStart} 
-                  onChange={(e) => setFormCropSeasonStart(e.target.value)} 
-                  required 
+                <input
+                  type="datetime-local"
+                  className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white outline-none"
+                  value={formCropSeasonStart}
+                  onChange={(e) => setFormCropSeasonStart(e.target.value)}
+                  required
                 />
               </div>
 
@@ -1991,26 +1988,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
           <div className="glass-panel w-full max-w-[440px] rounded-2xl border-gradient shadow-2xl p-6 relative">
             <button onClick={() => setIsExpenseModalOpen(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white cursor-pointer"><X className="w-5 h-5" /></button>
             <h2 className="text-lg font-bold text-white mb-5">{editingExpense ? 'Modify Ledger Entry' : 'Log Operational Expense'}</h2>
-            
+
             {formExpError && <div className="p-3 bg-red-500/5 border border-red-500/20 text-xs text-red-400 rounded-lg mb-4">{formExpError}</div>}
-            
+
             <form onSubmit={handleExpenseSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Amount ($)</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     step="any"
-                    className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white outline-none" 
+                    className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white outline-none"
                     placeholder="E.g., 250.00"
-                    value={formExpAmount} 
-                    onChange={(e) => setFormExpAmount(e.target.value)} 
-                    required 
+                    value={formExpAmount}
+                    onChange={(e) => setFormExpAmount(e.target.value)}
+                    required
                   />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Category</label>
-                  <select 
+                  <select
                     className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3 text-sm text-white outline-none"
                     value={formExpCategory}
                     onChange={(e) => setFormExpCategory(e.target.value)}
@@ -2024,23 +2021,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Log Date</label>
-                <input 
-                  type="date" 
-                  className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white outline-none" 
-                  value={formExpDate} 
-                  onChange={(e) => setFormExpDate(e.target.value)} 
-                  required 
+                <input
+                  type="date"
+                  className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white outline-none"
+                  value={formExpDate}
+                  onChange={(e) => setFormExpDate(e.target.value)}
+                  required
                 />
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Overhead details</label>
-                <input 
-                  type="text" 
-                  className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white placeholder-zinc-700 outline-none" 
+                <input
+                  type="text"
+                  className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white placeholder-zinc-700 outline-none"
                   placeholder="Purchased winter fertilizer"
-                  value={formExpNotes} 
-                  onChange={(e) => setFormExpNotes(e.target.value)} 
+                  value={formExpNotes}
+                  onChange={(e) => setFormExpNotes(e.target.value)}
                 />
               </div>
 
@@ -2061,24 +2058,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
           <div className="glass-panel w-full max-w-[460px] rounded-2xl border-gradient shadow-2xl p-6 relative">
             <button onClick={() => setIsActivityModalOpen(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white cursor-pointer"><X className="w-5 h-5" /></button>
             <h2 className="text-lg font-bold text-white mb-5">{editingActivity ? 'Revise Operation Log' : 'Record Farm Operation'}</h2>
-            
+
             {formActError && <div className="p-3 bg-red-500/5 border border-red-500/20 text-xs text-red-400 rounded-lg mb-4">{formActError}</div>}
-            
+
             <form onSubmit={handleActivitySubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Operation Date</label>
-                  <input 
-                    type="date" 
-                    className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white outline-none" 
-                    value={formActDate} 
-                    onChange={(e) => setFormActDate(e.target.value)} 
-                    required 
+                  <input
+                    type="date"
+                    className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white outline-none"
+                    value={formActDate}
+                    onChange={(e) => setFormActDate(e.target.value)}
+                    required
                   />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Target Farm</label>
-                  <select 
+                  <select
                     className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3 text-sm text-white outline-none"
                     value={formActFarmId}
                     onChange={(e) => setFormActFarmId(e.target.value)}
@@ -2094,7 +2091,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Activity Type</label>
-                <select 
+                <select
                   className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3 text-sm text-white outline-none"
                   value={formActType}
                   onChange={(e) => setFormActType(e.target.value)}
@@ -2110,44 +2107,44 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Pesticide Name</label>
-                  <input 
-                    type="text" 
-                    className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2 px-2.5 text-xs text-white outline-none" 
+                  <input
+                    type="text"
+                    className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2 px-2.5 text-xs text-white outline-none"
                     placeholder="E.g. None"
-                    value={formActPestName} 
-                    onChange={(e) => setFormActPestName(e.target.value)} 
+                    value={formActPestName}
+                    onChange={(e) => setFormActPestName(e.target.value)}
                   />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Quantity</label>
-                  <input 
-                    type="text" 
-                    className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2 px-2.5 text-xs text-white outline-none" 
+                  <input
+                    type="text"
+                    className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2 px-2.5 text-xs text-white outline-none"
                     placeholder="E.g. None"
-                    value={formActPestQty} 
-                    onChange={(e) => setFormActPestQty(e.target.value)} 
+                    value={formActPestQty}
+                    onChange={(e) => setFormActPestQty(e.target.value)}
                   />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Time (e.g. AM/PM)</label>
-                  <input 
-                    type="text" 
-                    className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2 px-2.5 text-xs text-white outline-none" 
+                  <input
+                    type="text"
+                    className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2 px-2.5 text-xs text-white outline-none"
                     placeholder="E.g. None"
-                    value={formActPestTime} 
-                    onChange={(e) => setFormActPestTime(e.target.value)} 
+                    value={formActPestTime}
+                    onChange={(e) => setFormActPestTime(e.target.value)}
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Attached Log Details</label>
-                <textarea 
-                  className="w-full min-h-[100px] bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white placeholder-zinc-700 outline-none resize-none" 
+                <textarea
+                  className="w-full min-h-[100px] bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white placeholder-zinc-700 outline-none resize-none"
                   placeholder="E.g., Drip line inspection complete. Added nitrogen mix in quadrant C."
-                  value={formActNotes} 
-                  onChange={(e) => setFormActNotes(e.target.value)} 
-                  required 
+                  value={formActNotes}
+                  onChange={(e) => setFormActNotes(e.target.value)}
+                  required
                 />
               </div>
 
@@ -2168,23 +2165,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
           <div className="glass-panel w-full max-w-[440px] rounded-2xl border-gradient shadow-2xl p-6 relative">
             <button onClick={() => setIsUploadModalOpen(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white cursor-pointer"><X className="w-5 h-5" /></button>
             <h2 className="text-lg font-bold text-white mb-5">Upload Telemetry Photo</h2>
-            
+
             {uploadError && <div className="p-3 bg-red-500/5 border border-red-500/20 text-xs text-red-400 rounded-lg mb-4">{uploadError}</div>}
-            
+
             <form onSubmit={handleUploadSubmit} className="space-y-4">
-              <div 
+              <div
                 onClick={() => document.getElementById('fileUploadGallery')?.click()}
                 className="border-2 border-dashed border-zinc-800 hover:border-zinc-700 bg-zinc-950/40 rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all"
               >
                 <Upload className="w-8 h-8 text-zinc-500 mb-2" />
                 <p className="text-xs font-semibold text-zinc-300">Drag and drop file, or browse</p>
                 <span className="text-[10px] text-zinc-500 mt-1">Supports PNG, JPEG, WEBP under 5MB</span>
-                <input 
-                  id="fileUploadGallery" 
-                  type="file" 
-                  accept="image/*" 
-                  className="hidden" 
-                  onChange={handleFileChange} 
+                <input
+                  id="fileUploadGallery"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileChange}
                 />
                 {selectedFile && (
                   <span className="text-[11px] font-bold text-indigo-400 mt-3 truncate max-w-full">
@@ -2195,7 +2192,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Associate with Farm (Optional)</label>
-                <select 
+                <select
                   className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3 text-sm text-white outline-none"
                   value={uploadFarmId}
                   onChange={(e) => setUploadFarmId(e.target.value)}
@@ -2209,7 +2206,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Caption / Notes</label>
-                <input 
+                <input
                   type="text"
                   className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white placeholder-zinc-705 outline-none"
                   placeholder="Soil testing in quadrant 4"
@@ -2235,23 +2232,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
           <div className="glass-panel w-full max-w-[450px] rounded-2xl border-gradient shadow-2xl p-6 relative">
             <button onClick={() => setIsDiseaseModalOpen(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-white cursor-pointer"><X className="w-5 h-5" /></button>
             <h2 className="text-lg font-bold text-white mb-5">Log Disease Outbreak</h2>
-            
+
             {diseaseErrorMsg && <div className="p-3 bg-red-500/5 border border-red-500/20 text-xs text-red-400 rounded-lg mb-4">{diseaseErrorMsg}</div>}
-            
+
             <form onSubmit={handleDiseaseSubmit} className="space-y-4">
-              <div 
+              <div
                 onClick={() => document.getElementById('fileUploadDisease')?.click()}
                 className="border-2 border-dashed border-zinc-800 hover:border-zinc-700 bg-zinc-950/40 rounded-xl p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-all"
               >
                 <Upload className="w-8 h-8 text-zinc-500 mb-2" />
                 <p className="text-xs font-semibold text-zinc-300">Upload crop infection photo</p>
                 <span className="text-[10px] text-zinc-500 mt-1">Supports PNG, JPEG, WEBP under 5MB</span>
-                <input 
-                  id="fileUploadDisease" 
-                  type="file" 
-                  accept="image/*" 
-                  className="hidden" 
-                  onChange={handleDiseaseFileChange} 
+                <input
+                  id="fileUploadDisease"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleDiseaseFileChange}
                 />
                 {diseaseFile && (
                   <span className="text-[11px] font-bold text-red-455 mt-3 truncate max-w-full">
@@ -2262,7 +2259,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Disease / Infection Name</label>
-                <input 
+                <input
                   type="text"
                   className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white placeholder-zinc-705 outline-none"
                   placeholder="E.g., Powdery Mildew"
@@ -2274,7 +2271,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Target Farm</label>
-                <select 
+                <select
                   className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3 text-sm text-white outline-none"
                   value={diseaseFarmId}
                   onChange={(e) => setDiseaseFarmId(e.target.value)}
@@ -2290,8 +2287,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Temp (°C)</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     step="any"
                     className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2 px-2.5 text-xs text-white outline-none"
                     value={diseaseTempInput}
@@ -2301,7 +2298,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Humid (%)</label>
-                  <input 
+                  <input
                     type="number"
                     className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2 px-2.5 text-xs text-white outline-none"
                     value={diseaseHumidityInput}
@@ -2311,7 +2308,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Rain (mm)</label>
-                  <input 
+                  <input
                     type="number"
                     step="any"
                     className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2 px-2.5 text-xs text-white outline-none"
@@ -2335,23 +2332,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
       {/* LIGHTBOX OVERLAY */}
       {activeLightboxImage && (
-        <div 
+        <div
           onClick={() => setActiveLightboxImage(null)}
           className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
         >
-          <div 
+          <div
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-[850px] relative flex flex-col items-center gap-4"
           >
-            <button 
+            <button
               onClick={() => setActiveLightboxImage(null)}
               className="absolute -top-12 right-0 p-2 text-zinc-400 hover:text-white cursor-pointer"
             >
               <X className="w-6 h-6" />
             </button>
-            <img 
-              src={`http://localhost:3000/uploads/${activeLightboxImage.filename}`} 
-              alt={activeLightboxImage.caption || activeLightboxImage.diseaseName} 
+            <img
+              src={`http://localhost:3000/uploads/${activeLightboxImage.filename}`}
+              alt={activeLightboxImage.caption || activeLightboxImage.diseaseName}
               className="w-full max-h-[70vh] object-contain rounded-lg border border-zinc-900 shadow-2xl"
             />
             <div className="w-full text-center px-4 py-3 bg-[#08090e] border border-zinc-900/60 rounded-xl space-y-2">
@@ -2401,7 +2398,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     <span className="text-[9px] text-zinc-500 font-semibold mt-0.5 block">AI Copilot Node</span>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => setIsChatOpen(false)}
                   className="p-1 rounded text-zinc-505 hover:text-white hover:bg-zinc-900 cursor-pointer"
                 >
@@ -2412,15 +2409,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
               {/* Chat History Panel */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3.5 scrollbar-thin">
                 {chatMessages.map((msg, idx) => (
-                  <div 
-                    key={idx} 
+                  <div
+                    key={idx}
                     className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div 
+                    <div
                       className={`
                         max-w-[80%] rounded-xl px-3 py-2 text-xs leading-normal 
-                        ${msg.sender === 'user' 
-                          ? 'bg-indigo-600 text-white border border-indigo-500/30' 
+                        ${msg.sender === 'user'
+                          ? 'bg-indigo-600 text-white border border-indigo-500/30'
                           : 'bg-zinc-900/60 text-zinc-300 border border-zinc-900'}
                       `}
                     >
@@ -2431,7 +2428,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     </div>
                   </div>
                 ))}
-                
+
                 {chatTyping && (
                   <div className="flex justify-start">
                     <div className="bg-zinc-900/60 border border-zinc-900 rounded-xl px-4 py-2.5 text-xs text-zinc-550 flex gap-1 items-center">
@@ -2444,18 +2441,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
               </div>
 
               {/* Input Form */}
-              <form 
+              <form
                 onSubmit={handleSendChatMessage}
                 className="p-3 bg-[#0a0b10]/60 border-t border-zinc-900 flex gap-2"
               >
-                <input 
+                <input
                   type="text"
                   placeholder="Ask a question about your farm..."
                   className="flex-1 bg-zinc-950 border border-zinc-850 focus:border-zinc-700 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-700 outline-none"
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                 />
-                <button 
+                <button
                   type="submit"
                   className="p-2 rounded-lg bg-indigo-650 hover:bg-indigo-600 text-white border border-indigo-500/25 flex items-center justify-center cursor-pointer transition-all active:scale-95"
                 >
@@ -2471,8 +2468,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
           onClick={() => setIsChatOpen(!isChatOpen)}
           className={`
             w-12 h-12 rounded-full flex items-center justify-center shadow-2xl cursor-pointer border transition-all duration-300 active:scale-90
-            ${isChatOpen 
-              ? 'bg-zinc-900 text-white border-zinc-800 hover:bg-zinc-800' 
+            ${isChatOpen
+              ? 'bg-zinc-900 text-white border-zinc-800 hover:bg-zinc-800'
               : 'bg-indigo-600 text-white border-indigo-500/30 hover:bg-indigo-500 hover:shadow-[0_0_20px_rgba(99,102,241,0.25)]'}
           `}
         >
