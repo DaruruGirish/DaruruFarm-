@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { API_URL } from '../config';
 import {
   LogOut, User as UserIcon, Shield, LayoutDashboard, Map as MapIcon, Sprout,
   Trees, MapPin, Plus, Edit2, Trash2, X,
@@ -214,7 +213,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     e.stopPropagation();
     if (!window.confirm('Delete this photo from the gallery?')) return;
     try {
-      const response = await fetch(`${API_URL}/gallery/${id}`, {
+      const response = await fetch(`/api/gallery/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -256,7 +255,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   // Fetch API Data
   const fetchData = async () => {
     try {
-      const profileRes = await fetch(`${API_URL}/auth/profile`, {
+      const profileRes = await fetch(`/api/auth/profile`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
 
@@ -271,13 +270,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
       setProfile(profileData);
 
       const [farmsRes, expensesRes, activitiesRes, galleryRes, diseaseRes, contactRes, dashboardRes] = await Promise.all([
-        fetch(`${API_URL}/farms`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`${API_URL}/expenses`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`${API_URL}/daily-activities`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`${API_URL}/gallery`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`${API_URL}/disease-management`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`${API_URL}/contact`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`${API_URL}/dashboard`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/farms`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/expenses`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/daily-activities`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/gallery`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/disease-management`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/contact`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`/api/dashboard`, { headers: { 'Authorization': `Bearer ${token}` } }),
       ]);
 
       if (farmsRes.ok) setFarms(await farmsRes.json());
@@ -302,37 +301,37 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
   // Refresh lists
   const refreshFarms = async () => {
-    const res = await fetch(`${API_URL}/farms`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const res = await fetch(`/api/farms`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (res.ok) setFarms(await res.json());
   };
 
   const refreshExpenses = async () => {
-    const res = await fetch(`${API_URL}/expenses`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const res = await fetch(`/api/expenses`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (res.ok) setExpenses(await res.json());
   };
 
   const refreshActivities = async () => {
-    const res = await fetch(`${API_URL}/daily-activities`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const res = await fetch(`/api/daily-activities`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (res.ok) setActivities(await res.json());
   };
 
   const refreshGallery = async () => {
-    const res = await fetch(`${API_URL}/gallery`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const res = await fetch(`/api/gallery`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (res.ok) setGalleryImages(await res.json());
   };
 
   const refreshDiseases = async () => {
-    const res = await fetch(`${API_URL}/disease-management`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const res = await fetch(`/api/disease-management`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (res.ok) setDiseaseEvents(await res.json());
   };
 
   const refreshSupportHistory = async () => {
-    const res = await fetch(`${API_URL}/contact`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const res = await fetch(`/api/contact`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (res.ok) setContactInquiries(await res.json());
   };
 
   const refreshDashboardData = async () => {
-    const res = await fetch(`${API_URL}/dashboard`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const res = await fetch(`/api/dashboard`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (res.ok) setDashboardData(await res.json());
   };
 
@@ -365,7 +364,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     };
 
     try {
-      const url = editingFarm ? `${API_URL}/farms/${editingFarm.id}` : `${API_URL}/farms`;
+      const url = editingFarm ? `/api/farms/${editingFarm.id}` : `/api/farms`;
       const method = editingFarm ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -390,7 +389,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   const handleDeleteFarm = async (id: number) => {
     if (!window.confirm('Delete farm holding? All connected logs will be archived.')) return;
     try {
-      const response = await fetch(`${API_URL}/farms/${id}`, {
+      const response = await fetch(`/api/farms/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -417,7 +416,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     const body = { amount, category: formExpCategory, notes: formExpNotes, date: formExpDate };
 
     try {
-      const url = editingExpense ? `${API_URL}/expenses/${editingExpense.id}` : `${API_URL}/expenses`;
+      const url = editingExpense ? `/api/expenses/${editingExpense.id}` : `/api/expenses`;
       const method = editingExpense ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -442,7 +441,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   const handleDeleteExpense = async (id: number) => {
     if (!window.confirm('Remove this expense entry?')) return;
     try {
-      const response = await fetch(`${API_URL}/expenses/${id}`, {
+      const response = await fetch(`/api/expenses/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -476,7 +475,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     };
 
     try {
-      const url = editingActivity ? `${API_URL}/daily-activities/${editingActivity.id}` : `${API_URL}/daily-activities`;
+      const url = editingActivity ? `/api/daily-activities/${editingActivity.id}` : `/api/daily-activities`;
       const method = editingActivity ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -501,7 +500,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   const handleDeleteActivity = async (id: number) => {
     if (!window.confirm('Remove this activity log?')) return;
     try {
-      const response = await fetch(`${API_URL}/daily-activities/${id}`, {
+      const response = await fetch(`/api/daily-activities/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -530,7 +529,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     if (uploadFarmId) formData.append('farmId', uploadFarmId);
 
     try {
-      const response = await fetch(`${API_URL}/gallery/upload`, {
+      const response = await fetch(`/api/gallery/upload`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
@@ -576,7 +575,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     formData.append('farmId', diseaseFarmId);
 
     try {
-      const response = await fetch(`${API_URL}/disease-management/upload`, {
+      const response = await fetch(`/api/disease-management/upload`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
@@ -599,7 +598,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     e.stopPropagation();
     if (!window.confirm('Delete disease warning?')) return;
     try {
-      const response = await fetch(`${API_URL}/disease-management/${id}`, {
+      const response = await fetch(`/api/disease-management/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
@@ -631,7 +630,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     };
 
     try {
-      const response = await fetch(`${API_URL}/contact`, {
+      const response = await fetch(`/api/contact`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1022,7 +1021,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                           >
                             {alert.filename ? (
                               <img
-                                src={`${API_URL}/uploads/${alert.filename}`}
+                                src={`/api/uploads/${alert.filename}`}
                                 alt={alert.disease}
                                 className="w-10 h-10 rounded-md object-cover border border-zinc-800"
                               />
@@ -1567,7 +1566,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                       >
                         <div className="h-[200px] overflow-hidden relative bg-[#090d16]">
                           <img
-                            src={`${API_URL}/uploads/${img.filename}`}
+                            src={`/api/uploads/${img.filename}`}
                             alt={img.caption}
                             loading="lazy"
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -1649,7 +1648,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                         >
                           <div className="h-[170px] overflow-hidden relative bg-[#090d16]">
                             <img
-                              src={`${API_URL}/uploads/${event.filename}`}
+                              src={`/api/uploads/${event.filename}`}
                               alt={event.diseaseName}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                             />
@@ -2348,7 +2347,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
               <X className="w-6 h-6" />
             </button>
             <img
-              src={`${API_URL}/uploads/${activeLightboxImage.filename}`}
+              src={`/api/uploads/${activeLightboxImage.filename}`}
               alt={activeLightboxImage.caption || activeLightboxImage.diseaseName}
               className="w-full max-h-[70vh] object-contain rounded-lg border border-zinc-900 shadow-2xl"
             />

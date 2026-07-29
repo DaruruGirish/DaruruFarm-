@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Mail, Lock, User, LogIn, UserPlus, AlertCircle, CheckCircle, Sprout } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { API_URL } from '../config';
 
 interface LoginProps {
   onLoginSuccess: (token: string) => void;
@@ -24,8 +23,8 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     setLoading(true);
 
     const url = isLoginMode
-      ? `${API_URL}/auth/login`
-      : `${API_URL}/auth/register`;
+      ? '/api/auth/login'
+      : '/api/auth/register';
 
     const body = isLoginMode
       ? { email, password }
