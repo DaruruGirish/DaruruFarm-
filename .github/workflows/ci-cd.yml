@@ -88,3 +88,23 @@ jobs:
           push: true
           tags: |
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/darurufarm-frontend:latest
+  deploy:
+    name: Deploy to EC2
+    needs: verify-docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/DaruruFarm
+
+            aws ecr get-login-password --region ap-south-2 | docker login --username AWS --password-stdin 739030358103.dkr.ecr.ap-south-2.amazonaws.com
+
+            docker compose pull
+
+            docker compose up -d
