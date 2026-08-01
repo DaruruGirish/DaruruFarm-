@@ -1,4 +1,4 @@
-version: "3.9"
+# version: "3.9"  # deprecated, ignored by Compose V2
 
 services:
 
@@ -13,7 +13,7 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
 
     ports:
-      - "3306:3306"
+      - "3307:3306"
 
     volumes:
       - mysql_data:/var/lib/mysql
@@ -22,7 +22,8 @@ services:
       - darurufarms-network
 
   darurufarms-backend:
-    image: 739030358103.dkr.ecr.ap-south-2.amazonaws.com/darurufarm-backend:latest
+    build: ./backend
+    image: darurufarms-backend:dev
     container_name: darurufarms-backend
     restart: unless-stopped
     env_file: ./.env
@@ -40,13 +41,14 @@ services:
       PORT: ${PORT}
 
     ports:
-      - "3000:3000"
+      - "3001:3000"
 
     networks:
       - darurufarms-network
 
   darurufarms-frontend:
-    image: 739030358103.dkr.ecr.ap-south-2.amazonaws.com/darurufarm-frontend:latest
+    build: ./frontend
+    image: darurufarms-frontend:dev
     container_name: darurufarms-frontend
     restart: unless-stopped
     depends_on:
