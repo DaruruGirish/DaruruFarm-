@@ -6,10 +6,11 @@ services:
     image: mysql:8
     container_name: daruru-db
     restart: unless-stopped
+    env_file: ./.env
 
     environment:
-      MYSQL_ROOT_PASSWORD: Bunny2026$
-      MYSQL_DATABASE: daruru_farm
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
 
     ports:
       - "3306:3306"
@@ -22,22 +23,21 @@ services:
 
   darurufarms-backend:
     image: 739030358103.dkr.ecr.ap-south-2.amazonaws.com/darurufarm-backend:latest
-
     container_name: darurufarms-backend
-
     restart: unless-stopped
+    env_file: ./.env
 
     depends_on:
       - daruru-db
 
     environment:
-      DB_HOST: daruru-db
-      DB_PORT: 3306
-      DB_USERNAME: root
-      DB_PASSWORD: Bunny2026$
-      DB_DATABASE: daruru_farm
-      JWT_SECRET: super_secret_key_123
-      PORT: 3000
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_DATABASE: ${DB_DATABASE}
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: ${PORT}
 
     ports:
       - "3000:3000"
@@ -46,15 +46,12 @@ services:
       - darurufarms-network
 
   darurufarms-frontend:
-
     image: 739030358103.dkr.ecr.ap-south-2.amazonaws.com/darurufarm-frontend:latest
-
     container_name: darurufarms-frontend
-
     restart: unless-stopped
-
     depends_on:
       - darurufarms-backend
+    env_file: ./.env
 
     ports:
       - "80:80"
