@@ -47,6 +47,7 @@ async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     app.enableCors();
     app.use('/uploads', express.static(uploadsDir));
+    app.use('/api/uploads', express.static(uploadsDir));
     const config = new swagger_1.DocumentBuilder()
         .setTitle('Daruru Farm Auth API')
         .setDescription('API documentation for the backend authentication and user management system')

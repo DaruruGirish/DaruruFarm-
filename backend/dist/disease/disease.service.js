@@ -104,9 +104,84 @@ let DiseaseService = class DiseaseService {
             }
         }
         catch (err) {
-            console.error(`Failed to delete disease file from disk: ${filePath}`, err);
+            console.error(`Failed to delete file from disk: ${filePath}`, err);
         }
         await this.diseaseRepository.remove(event);
+    }
+    async predictDiseaseRisk(data) {
+        const rainfall = Number(data.rainfall_mm) || 0;
+        const humidity = Number(data.humidity) || 0;
+        const temperature = Number(data.temperature) || 0;
+        const recent_disease = Number(data.recent_disease_count) || 0;
+        const recent_high_severity = Number(data.recent_high_severity_count) || 0;
+        const irrigation = Number(data.irrigation_liters) || 2000;
+        const sprays = Number(data.pesticide_spray_count) || 0;
+        const disease_logs = Number(data.disease_log_count) || 0;
+        const pest_inspections = Number(data.pest_inspection_count) || 0;
+        let score = 0;
+        if (rainfall > 60)
+            score += 25;
+        else if (rainfall > 30)
+            score += 15;
+        if (humidity > 80)
+            score += 30;
+        else if (humidity > 65)
+            score += 15;
+        if (temperature >= 24 && temperature <= 32)
+            score += 20;
+        if (recent_disease > 2)
+            score += 15;
+        else if (recent_disease > 0)
+            score += 8;
+        if (recent_high_severity > 0)
+            score += 15;
+        if (sprays === 0)
+            score += 10;
+        else if (sprays >= 2)
+            score -= 15;
+        if (disease_logs > 1)
+            score += 10;
+        const risk_percentage = Math.min(99.4, Math.max(5.2, Math.round((score * 0.85 + (rainfall * 0.15)) * 10) / 10));
+        let risk_level = 'LOW';
+        if (risk_percentage >= 70) {
+            risk_level = 'HIGH';
+        }
+        else if (risk_percentage >= 40) {
+            risk_level = 'MEDIUM';
+        }
+        const recommendations = {
+            HIGH: {
+                action: 'Immediate preventive fungicide application recommended (Mancozeb 75 WP @ 2.5g/L or Copper Oxychloride @ 3g/L).',
+                irrigation: 'Reduce drip duration and halt overhead sprinklers to lower canopy humidity.',
+                protocol: 'Perform immediate field scout across damp sectors and quarantine affected clusters.',
+            },
+            MEDIUM: {
+                action: 'Apply bio-fungicide or organic neem oil spray (3ml/L) as a prophylactic barrier.',
+                irrigation: 'Ensure good root zone aeration; schedule irrigation for early morning.',
+                protocol: 'Monitor humidity telemetry and inspect leaves daily for fungal spore spots.',
+            },
+            LOW: {
+                action: 'Microclimate is within safe agronomic bounds. Standard nutrition schedule advised.',
+                irrigation: 'Normal irrigation schedule based on soil moisture tension telemetry.',
+                protocol: 'Continue routine bi-weekly field scouting.',
+            },
+        };
+        return {
+            risk_percentage,
+            risk_level,
+            recommendation: recommendations[risk_level],
+            features: {
+                rainfall_mm: rainfall,
+                humidity,
+                temperature,
+                recent_disease_count: recent_disease,
+                recent_high_severity_count: recent_high_severity,
+                irrigation_liters: irrigation,
+                pesticide_spray_count: sprays,
+                disease_log_count: disease_logs,
+                pest_inspection_count: pest_inspections,
+            },
+        };
     }
 };
 exports.DiseaseService = DiseaseService;

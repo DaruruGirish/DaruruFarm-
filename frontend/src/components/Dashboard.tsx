@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import DiseasePredictor from './DiseasePredictor';
 import {
   LogOut, User as UserIcon, Shield, LayoutDashboard, Map as MapIcon, Sprout,
   Trees, MapPin, Plus, Edit2, Trash2, X,
@@ -1610,6 +1611,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     <span>Log Outbreak</span>
                   </button>
                 </div>
+
+                <DiseasePredictor token={token} />
 
                 <div className="flex flex-col sm:flex-row gap-4 bg-zinc-950/40 p-4 rounded-xl border border-zinc-900/60">
                   <div className="w-full sm:w-[280px]">
