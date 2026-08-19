@@ -39,10 +39,16 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         body: JSON.stringify(body),
       });
 
-      const data = await response.json();
+      let data: any = {};
+      const responseText = await response.text();
+      try {
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        data = { message: responseText || `Request failed with status ${response.status}` };
+      }
 
       if (!response.ok) {
-        throw new Error(data.message || 'Something went wrong');
+        throw new Error(data.message || `Request failed with status ${response.status}`);
       }
 
       if (isLoginMode) {

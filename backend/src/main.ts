@@ -19,6 +19,7 @@ async function bootstrap() {
 
   // Serve static files from uploads folder
   app.use('/uploads', express.static(uploadsDir));
+  app.use('/api/uploads', express.static(uploadsDir));
 
   // Configure Swagger document details
   const config = new DocumentBuilder()
