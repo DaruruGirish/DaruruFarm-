@@ -3,8 +3,8 @@ import {
   LogOut, User as UserIcon, Shield, LayoutDashboard, Map as MapIcon, Sprout,
   Trees, MapPin, Plus, Edit2, Trash2, X,
   CloudRain, Cloud, Sun, Droplets, Wind, AlertTriangle,
-  Activity, DollarSign, Search, Pencil,
-  ClipboardList, Image as ImageIcon, Upload, Camera, Bug, ArrowUpRight, ArrowDownRight, Menu,
+  Activity, IndianRupee, Search, Pencil,
+  ClipboardList, Image as ImageIcon, Upload, Camera, Bug, ArrowUpRight, ArrowDownRight,
   HelpCircle, Phone, Mail, Calendar, MessageSquare, Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -671,7 +671,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
       if (query.includes('hello') || query.includes('hi') || query.includes('hey')) {
         reply = "Hello there! I am your Daruru Assistant. How can I help you analyze your holdings today?";
       } else if (query.includes('expens') || query.includes('split') || query.includes('ledger')) {
-        reply = `I can help you monitor expenses! Your current total logged expenditure is $${totalExpensesSum.toLocaleString()} which is split into Direct Crop Overhead, Labor & Fleet, and Irrigation at $${splitPartValue} each.`;
+        reply = `I can help you monitor expenses! Your current total logged expenditure is ₹${totalExpensesSum.toLocaleString()} which is split into Direct Crop Overhead, Labor & Fleet, and Irrigation at ₹${Number(splitPartValue).toLocaleString()} each.`;
       } else if (query.includes('farm') || query.includes('holding') || query.includes('plant')) {
         reply = `You currently have ${farms.length} holdings covering ${totalAcres} acres with a total plant count of ${totalTrees.toLocaleString()}.`;
       } else if (query.includes('disease') || query.includes('bug')) {
@@ -731,7 +731,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
           <p className="text-zinc-500 text-xs font-semibold mb-1 uppercase tracking-wider">{label}</p>
           {payload.map((p: any, idx: number) => (
             <p key={idx} className="text-sm font-bold" style={{ color: p.color || p.fill }}>
-              {p.name}: <span className="text-white">{p.value.toLocaleString()}{p.name.includes('Rain') ? 'mm' : ''}</span>
+              {p.name}: <span className="text-white">{p.name.includes('Expense') ? '₹' : ''}{p.value.toLocaleString()}{p.name.includes('Rain') ? 'mm' : ''}</span>
             </p>
           ))}
         </div>
@@ -755,47 +755,45 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
         <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center border border-red-500/20 mb-2">
           <AlertTriangle className="w-6 h-6 text-red-400" />
         </div>
-        <h2 className="text-lg font-bold text-white">Telemetry Connection Failed</h2>
-        <p className="text-zinc-500 text-sm max-w-sm">{error}</p>
-        <button onClick={fetchData} className="mt-4 bg-zinc-800 hover:bg-zinc-750 text-white px-4 py-2 rounded-lg text-sm font-semibold border border-zinc-700 cursor-pointer">
-          Retry Sync
+        <h2 className="text-lg font-bold text-white mb-1">Failed to connect to farm telemetry</h2>
+        <p className="text-sm text-zinc-500 max-w-sm mb-4">{error}</p>
+        <button
+          onClick={fetchData}
+          className="bg-indigo-650 hover:bg-indigo-600 text-white font-semibold text-xs px-4 py-2 rounded-lg transition-all duration-150 cursor-pointer shadow-[0_1px_2px_rgba(99,102,241,0.2)]"
+        >
+          Retry Connection
         </button>
       </div>
     );
   }
 
   return (
-    <div className="w-full min-h-screen bg-[#05060b] text-zinc-100 flex flex-col md:flex-row relative dot-grid">
+    <div className="flex h-screen bg-[#05060b] text-zinc-100 font-sans antialiased overflow-hidden">
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-      {/* Mobile Top Header */}
-      <header className="md:hidden w-full glass-panel border-b border-zinc-900/60 px-5 py-4 flex items-center justify-between z-40 sticky top-0">
-        <div className="flex items-center gap-2">
-          <Sprout className="w-6 h-6 text-indigo-400 animate-pulse" />
-          <span className="font-bold text-md tracking-tight text-white">Daruru Cockpit</span>
-        </div>
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-1.5 rounded-lg border border-zinc-800 bg-zinc-950 text-zinc-300 hover:text-white"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
-      </header>
-
-      {/* Sidebar Navigation */}
-      <aside className={`
-        fixed inset-y-0 left-0 z-50 w-[260px] bg-[#08090e] border-r border-zinc-900/60 p-6 flex flex-col justify-between
-        transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:z-auto
+      {/* Sidebar */}
+      <aside
+        className={`
+        fixed md:static inset-y-0 left-0 z-50
+        w-64 border-r border-zinc-900/80 bg-[#07080d]/95 backdrop-blur-xl flex flex-col justify-between p-6 transition-transform duration-300
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
+        md:translate-x-0
+      `}
+      >
         <div className="space-y-8">
+          {/* Brand Logo */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
-                <Sprout className="w-5 h-5 text-indigo-400" />
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/30">
+                <Sprout className="w-4 h-4 text-indigo-400" />
               </div>
-              <div className="flex flex-col">
-                <span className="font-bold text-sm text-white tracking-tight leading-none">Daruru Farms</span>
-              </div>
+              <span className="font-bold text-base tracking-tight text-white">Daruru Farm</span>
             </div>
             <button className="md:hidden p-1 text-zinc-500 hover:text-white" onClick={() => setSidebarOpen(false)}>
               <X className="w-5 h-5" />
@@ -806,7 +804,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
             {[
               { id: 'overview', label: 'Analysis', icon: LayoutDashboard },
               { id: 'farms', label: 'Holdings', icon: MapIcon },
-              { id: 'expenses', label: 'Expenses', icon: DollarSign },
+              { id: 'expenses', label: 'Expenses', icon: IndianRupee },
               { id: 'activities', label: 'Daily Logs', icon: ClipboardList },
               { id: 'gallery', label: 'Gallery', icon: ImageIcon },
               { id: 'diseases', label: 'Diseases', icon: Bug },
@@ -883,8 +881,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     { label: 'Crop Start Date', value: farms.length > 0 ? new Date(farms[0].cropSeasonStartTime).toLocaleDateString() : 'N/A', icon: Calendar, color: 'text-indigo-400 bg-indigo-500/5 border-indigo-500/10' },
                     {
                       label: 'July Expenses',
-                      value: `$${(dashboardData?.metrics?.expenses?.value || 0).toLocaleString()}`,
-                      icon: DollarSign,
+                      value: `₹${(dashboardData?.metrics?.expenses?.value || 0).toLocaleString()}`,
+                      icon: IndianRupee,
                       color: 'text-indigo-400 bg-indigo-500/5 border-indigo-500/10',
                       trend: dashboardData?.metrics?.expenses?.change
                     },
@@ -917,7 +915,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     <div className="glass-card rounded-xl border border-zinc-900/60 p-5 space-y-4">
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-bold text-zinc-300">Expense Trend</span>
-                        <span className="text-xs text-zinc-500">Amount ($)</span>
+                        <span className="text-xs text-zinc-500">Amount (₹)</span>
                       </div>
                       <div className="h-[200px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
@@ -1293,7 +1291,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                 {filteredExpenses.length === 0 ? (
                   <div className="glass-card border border-zinc-900 rounded-2xl p-12 text-center flex flex-col items-center justify-center">
                     <div className="w-12 h-12 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-center mb-4">
-                      <DollarSign className="w-6 h-6 text-zinc-500" />
+                      <IndianRupee className="w-6 h-6 text-zinc-500" />
                     </div>
                     <h3 className="text-base font-bold text-white">No expenses matching</h3>
                     <p className="text-sm text-zinc-500 mt-1 max-w-[320px] mx-auto">Create logs representing operational bills, supply chains, or employee wages.</p>
@@ -1320,7 +1318,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                               </span>
                             </td>
                             <td className="p-4 text-zinc-400 max-w-[200px] truncate">{exp.notes || <em className="text-zinc-650">No notes</em>}</td>
-                            <td className="p-4 font-bold text-indigo-400">${Number(exp.amount).toFixed(2)}</td>
+                            <td className="p-4 font-bold text-indigo-400">₹{Number(exp.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                             <td className="p-4 text-right">
                               <div className="inline-flex gap-2">
                                 <button
@@ -1357,7 +1355,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-zinc-900/60 pb-3">
                       <div>
                         <h3 className="text-sm font-bold text-white uppercase tracking-wider">3-Way Capital Allocation Split</h3>
-                        <p className="text-zinc-500 text-[11px] font-semibold mt-0.5">Formal distribution mapping of all logged expenses (${totalExpensesSum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}).</p>
+                        <p className="text-zinc-500 text-[11px] font-semibold mt-0.5">Formal distribution mapping of all logged expenses (₹{totalExpensesSum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}).</p>
                       </div>
                       <span className="text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2.5 py-0.5 rounded-full">
                         1/3 Ratio Division
@@ -1367,17 +1365,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                       <div className="bg-zinc-950/40 border border-zinc-900 p-4 rounded-lg space-y-1">
                         <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Direct Crop Overhead</span>
-                        <p className="text-lg font-bold text-white">${Number(splitPartValue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        <p className="text-lg font-bold text-white">₹{Number(splitPartValue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                         <span className="text-[9px] text-zinc-600 block">Fertilizers, seeds, pesticide supplies</span>
                       </div>
                       <div className="bg-zinc-950/40 border border-zinc-900 p-4 rounded-lg space-y-1">
                         <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Labor & Fleet Maintenance</span>
-                        <p className="text-lg font-bold text-white">${Number(splitPartValue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        <p className="text-lg font-bold text-white">₹{Number(splitPartValue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                         <span className="text-[9px] text-zinc-600 block">Workers wages, diesel, logistics, transport</span>
                       </div>
                       <div className="bg-zinc-950/40 border border-zinc-900 p-4 rounded-lg space-y-1">
                         <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Irrigation & Power Utility</span>
-                        <p className="text-lg font-bold text-white">${Number(splitPartValue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        <p className="text-lg font-bold text-white">₹{Number(splitPartValue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                         <span className="text-[9px] text-zinc-600 block">Electricity, water pumps, grid maintenance</span>
                       </div>
                     </div>
@@ -1994,12 +1992,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
             <form onSubmit={handleExpenseSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Amount ($)</label>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Amount (₹)</label>
                   <input
                     type="number"
                     step="any"
                     className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 rounded-lg py-2.5 px-3.5 text-sm text-white outline-none"
-                    placeholder="E.g., 250.00"
+                    placeholder="E.g., 25000.00"
                     value={formExpAmount}
                     onChange={(e) => setFormExpAmount(e.target.value)}
                     required
