@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import DiseasePredictor, { WeatherOutbreakRisk } from './DiseasePredictor';
 import { PricingPlans, PremiumGate } from './PricingPlans';
+import { BrandLogo, BRAND_NAME, BRAND_TAGLINE } from './BrandMark';
 import { isPremiumActive } from '../plans';
 import { ConfirmDialog, EmptyState, severityBadge } from './ui';
 import {
@@ -1524,17 +1525,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
       >
         <div className="space-y-6 overflow-y-auto">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-emerald-500/15 flex items-center justify-center border border-emerald-500/25 shrink-0">
-                <Sprout className="w-4 h-4 text-emerald-400" />
-              </div>
+            <button
+              type="button"
+              className="flex items-center gap-3 min-w-0 text-left rounded-xl hover:bg-emerald-50/80 p-0.5 -m-0.5"
+              onClick={() => {
+                setActiveTab('overview');
+                setSidebarOpen(false);
+                setIsChatOpen(false);
+              }}
+              aria-label="Go to Analysis"
+              title="Go to Analysis"
+            >
+              <BrandLogo size={36} />
               {!sidebarCollapsed && (
                 <div className="min-w-0">
-                  <span className="font-bold text-sm tracking-tight text-zinc-900 block truncate">Daruru Farms</span>
-                  <span className="text-[10px] text-zinc-500 font-medium">Operations</span>
+                  <span className="font-bold text-sm tracking-tight text-zinc-900 block truncate">{BRAND_NAME}</span>
+                  <span className="text-[10px] text-zinc-500 font-medium leading-snug block">{BRAND_TAGLINE}</span>
                 </div>
               )}
-            </div>
+            </button>
             <button className="md:hidden p-1 text-zinc-500 hover:text-zinc-900" onClick={() => setSidebarOpen(false)} aria-label="Close menu">
               <X className="w-5 h-5" />
             </button>
@@ -1733,7 +1742,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
               <>
                 <div className="flex flex-col lg:flex-row justify-between lg:items-end gap-4">
                   <div>
-                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-zinc-900">Farm analysis</h1>
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                      <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-zinc-900">Farm analysis</h1>
+                      <p className="text-sm md:text-base text-emerald-900/80 font-medium italic">{BRAND_TAGLINE}</p>
+                    </div>
                     <p className="text-zinc-500 text-sm mt-1">What is happening across {selectedFarmId ? 'this holding' : 'your holdings'} right now.</p>
                   </div>
                   <button type="button" onClick={() => setActiveTab('activities')} className="df-btn df-btn-primary">
@@ -3167,9 +3179,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     </div>
 
                     <div className="glass-card rounded-xl border border-zinc-200 p-5 space-y-3">
-                      <div className="w-9 h-9 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 text-indigo-400">
-                        <MapPin className="w-5 h-5" />
-                      </div>
+                      <BrandLogo size={36} />
                       <div>
                         <h4 className="text-sm font-bold text-zinc-900">DaruruFarms HQ</h4>
                         <p className="text-xs text-zinc-400 leading-normal mt-1">

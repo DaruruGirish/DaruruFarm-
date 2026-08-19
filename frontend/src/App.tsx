@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Login } from './components/Login';
 import { Dashboard } from './components/Dashboard';
 import { Toaster } from 'sonner';
+import { BrandLogo, BRAND_NAME, BRAND_TAGLINE } from './components/BrandMark';
 
 function App() {
   const [token, setToken] = useState<string | null>(null);
@@ -30,8 +31,13 @@ function App() {
   if (initializing) {
     return (
       <div className="w-full min-h-screen bg-[#f3efe4] flex flex-col items-center justify-center gap-4">
-        <div className="w-10 h-10 border-2 border-emerald-500/15 border-t-emerald-500 rounded-full animate-spin"></div>
-        <p className="text-zinc-500 text-sm font-medium tracking-wide">Loading Daruru Farms…</p>
+        <div className="flex items-center gap-3">
+          <BrandLogo size={40} />
+          <div>
+            <p className="text-zinc-900 text-sm font-bold tracking-tight">{BRAND_NAME}</p>
+            <p className="text-zinc-500 text-xs font-medium">{BRAND_TAGLINE}</p>
+          </div>
+        </div>
       </div>
     );
   }

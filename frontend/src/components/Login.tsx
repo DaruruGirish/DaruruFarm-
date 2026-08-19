@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, LogIn, UserPlus, AlertCircle, CheckCircle, Sprout } from 'lucide-react';
+import { Mail, Lock, User, LogIn, UserPlus, AlertCircle, CheckCircle } from 'lucide-react';
+import { BrandLogo, BRAND_NAME, BRAND_TAGLINE } from './BrandMark';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -90,16 +91,19 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         className="w-full max-w-[420px] glass-panel p-8 rounded-2xl relative border-gradient shadow-2xl"
       >
-        <div className="flex flex-col items-center text-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center justify-center border border-emerald-500/30 mb-4">
-            <Sprout className="w-6 h-6 text-emerald-400" />
+        <div className="flex items-center justify-center gap-3 text-left mb-8">
+          <BrandLogo size={48} />
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
+              {BRAND_NAME}
+            </h1>
+            <p className="text-sm text-emerald-900/80 font-medium italic">
+              {BRAND_TAGLINE}
+            </p>
+            <p className="text-sm text-zinc-500 font-medium mt-0.5">
+              {isLoginMode ? 'Sign in to manage holdings, logs, and crop health' : 'Create an account to start recording farm operations'}
+            </p>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 mb-1.5">
-            {isLoginMode ? 'Daruru Farms' : 'Create an account'}
-          </h1>
-          <p className="text-sm text-zinc-500 font-medium">
-            {isLoginMode ? 'Sign in to manage holdings, logs, and crop health' : 'Create an account to start recording farm operations'}
-          </p>
         </div>
 
         <AnimatePresence mode="wait">
