@@ -7,6 +7,15 @@ export class UpdateFarmDto {
   @ApiPropertyOptional({ example: '123 Valley Road, California' })
   address?: string;
 
+  @ApiPropertyOptional({ example: 'Mysuru, Karnataka' })
+  locationLabel?: string;
+
+  @ApiPropertyOptional({ example: 12.2958 })
+  latitude?: number;
+
+  @ApiPropertyOptional({ example: 76.6394 })
+  longitude?: number;
+
   @ApiPropertyOptional({ example: 45.5 })
   totalAcres?: number;
 

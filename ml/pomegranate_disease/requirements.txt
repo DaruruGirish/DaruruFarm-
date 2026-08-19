@@ -1,0 +1,10 @@
+torch
+torchvision
+pillow
+numpy
+scikit-learn
+fastapi
+uvicorn
+python-multipart
+datasets
+huggingface_hub

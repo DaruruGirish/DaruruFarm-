@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Expense } from '../expense/expense.entity';
 import { DailyActivity } from '../daily-activity/daily-activity.entity';
 import { DiseaseEvent } from '../disease/disease-event.entity';
+import { Farm } from '../farm/farm.entity';
 
 @Injectable()
 export class DashboardService {
@@ -14,6 +15,8 @@ export class DashboardService {
     private dailyActivityRepository: Repository<DailyActivity>,
     @InjectRepository(DiseaseEvent)
     private diseaseRepository: Repository<DiseaseEvent>,
+    @InjectRepository(Farm)
+    private farmRepository: Repository<Farm>,
   ) {}
 
   async getDashboardData(userId: number) {
@@ -68,8 +71,8 @@ export class DashboardService {
       }
     });
 
-    // Mock baseline values for historical months (Jan - Jun)
-    const baseExpenses = [3100, 2900, 4200, 3800, 4900, 5300, 0];
+    // Seasonal farm spend (not a straight climb): quiet months vs fertilizer/spray peaks
+    const baseExpenses = [68400, 31200, 142500, 52800, 168900, 81500, 0];
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
 
     // Construct the live Expense Trend chart data
@@ -179,13 +182,23 @@ export class DashboardService {
 
     const alerts = activeAlerts.length > 0 ? activeAlerts : fallbackAlerts;
 
+    const farms = await this.farmRepository.find({
+      where: { user: { id: userId } },
+      order: { id: 'ASC' },
+    });
+    const locatedFarm = farms.find((farm) => farm.latitude != null && farm.longitude != null) || farms[0];
+    const weatherLatitude = locatedFarm?.latitude != null ? Number(locatedFarm.latitude) : null;
+    const weatherLongitude = locatedFarm?.longitude != null ? Number(locatedFarm.longitude) : null;
+
     return {
       weather: {
         temp: 26,
         condition: 'Light Rain',
         humidity: 78,
         wind: 15,
-        location: 'Valley Region',
+        location: locatedFarm?.locationLabel || locatedFarm?.address || locatedFarm?.name || 'Set farm location',
+        latitude: weatherLatitude,
+        longitude: weatherLongitude,
       },
       metrics: {
         expenses: {
@@ -227,7 +240,153 @@ export class DashboardService {
           { month: 'Jun', water: 150, rain: 260 },
           { month: 'Jul', water: 180, rain: 185 },
         ],
+        rainfallHumidity: this.buildJulyRainfallHumidity(diseaseEvents),
+        windTemperature: this.buildJulyWindTemperature(diseaseEvents),
       },
+      labReports: this.buildLabReports(),
     };
+  }
+
+  private buildJulyRainfallHumidity(diseaseEvents: DiseaseEvent[]) {
+    const rainfallByDay: Record<number, number> = {};
+    const humidityByDay: Record<number, number> = {};
+
+    for (const event of diseaseEvents) {
+      const d = new Date(event.detectedAt);
+      if (d.getFullYear() === 2026 && d.getMonth() === 6) {
+        const day = d.getDate();
+        rainfallByDay[day] = Number(event.rainfall) || 0;
+        humidityByDay[day] = Number(event.humidity) || 0;
+      }
+    }
+
+    // Monsoon baseline for July, with heavier rain on log days 16 and 26
+    const rainBase = [
+      8, 12, 6, 4, 10, 18, 22, 16, 9, 14,
+      20, 35, 28, 15, 42, 78, 55, 30, 18, 25,
+      12, 8, 14, 20, 38, 72, 40, 16, 10, 8,
+    ];
+    const humidityBase = [
+      68, 70, 66, 65, 72, 75, 78, 74, 71, 76,
+      80, 84, 82, 77, 86, 92, 90, 85, 79, 81,
+      76, 73, 75, 78, 84, 91, 87, 80, 76, 74,
+    ];
+
+    return rainBase.map((rain, idx) => {
+      const day = idx + 1;
+      return {
+        day: `Jul ${day}`,
+        rainfall: rainfallByDay[day] ?? rain,
+        humidity: humidityByDay[day] ?? humidityBase[idx],
+      };
+    });
+  }
+
+  private buildJulyWindTemperature(diseaseEvents: DiseaseEvent[]) {
+    const tempByDay: Record<number, number> = {};
+
+    for (const event of diseaseEvents) {
+      const d = new Date(event.detectedAt);
+      if (d.getFullYear() === 2026 && d.getMonth() === 6) {
+        tempByDay[d.getDate()] = Number(event.temp) || 0;
+      }
+    }
+
+    const windBase = [
+      8, 10, 9, 7, 12, 16, 18, 14, 11, 13,
+      17, 22, 19, 12, 24, 28, 21, 15, 13, 16,
+      11, 9, 12, 15, 20, 26, 18, 12, 10, 9,
+    ];
+    const tempBase = [
+      27, 28, 29, 30, 28, 26, 25, 26, 27, 26,
+      25, 24, 24, 26, 23, 22, 23, 25, 26, 25,
+      27, 28, 27, 26, 24, 22, 23, 25, 26, 27,
+    ];
+
+    return windBase.map((wind, idx) => {
+      const day = idx + 1;
+      return {
+        day: `Jul ${day}`,
+        wind,
+        temp: tempByDay[day] || tempBase[idx],
+      };
+    });
+  }
+
+  private buildLabReports() {
+    return [
+      {
+        id: 'soil-0704',
+        category: 'soil',
+        title: 'Soil fertility & moisture panel',
+        date: '2026-07-04',
+        location: 'Root zone, all holdings',
+        status: 'Watch',
+        summary: 'Organic fertilizer applied. Moisture adequate; nitrogen slightly below target in compacted pockets.',
+        metrics: [
+          { label: 'Soil pH', value: '6.5', range: '6.0–7.0' },
+          { label: 'Moisture', value: '28%', range: '25–35%' },
+          { label: 'EC', value: '0.92 dS/m', range: '< 1.2' },
+          { label: 'Organic C', value: '0.68%', range: '> 0.50%' },
+        ],
+      },
+      {
+        id: 'ph-0704',
+        category: 'ph',
+        title: 'Soil pH mapping',
+        date: '2026-07-04',
+        location: 'North and south plant rows',
+        status: 'Optimal',
+        summary: 'pH within mango/apple orchard band after organic manure. No lime required this cycle.',
+        metrics: [
+          { label: 'Mean pH', value: '6.5', range: '6.0–7.0' },
+          { label: 'Min pH', value: '6.2', range: '> 5.8' },
+          { label: 'Max pH', value: '6.8', range: '< 7.2' },
+        ],
+      },
+      {
+        id: 'soil-0712',
+        category: 'soil',
+        title: 'Post-fertilizer soil report',
+        date: '2026-07-12',
+        location: 'Fertilizer application bands',
+        status: 'Optimal',
+        summary: 'Even fertilizer distribution. Nutrient availability improved in the top 20 cm.',
+        metrics: [
+          { label: 'Soil pH', value: '6.4', range: '6.0–7.0' },
+          { label: 'Available N', value: '268 kg/ha', range: '250–350' },
+          { label: 'Available P', value: '22 kg/ha', range: '20–40' },
+          { label: 'Available K', value: '198 kg/ha', range: '180–250' },
+        ],
+      },
+      {
+        id: 'soil-0719',
+        category: 'soil',
+        title: 'Soil moisture & debris-row survey',
+        date: '2026-07-19',
+        location: 'Major field rows',
+        status: 'Watch',
+        summary: 'Moisture good after weeding. Low-lying rows slightly wetter; monitor for fungal pressure.',
+        metrics: [
+          { label: 'Soil pH', value: '6.3', range: '6.0–7.0' },
+          { label: 'Moisture', value: '33%', range: '25–35%' },
+          { label: 'Bulk density', value: '1.32 g/cm³', range: '< 1.40' },
+        ],
+      },
+      {
+        id: 'ph-0727',
+        category: 'ph',
+        title: 'Post-rain soil & leaf-zone pH',
+        date: '2026-07-27',
+        location: 'Plants with minor fungal spots',
+        status: 'Watch',
+        summary: 'Rain slightly acidified surface soil. Fungicide applied; retest pH after drainage improves.',
+        metrics: [
+          { label: 'Surface pH', value: '6.1', range: '6.0–7.0' },
+          { label: '15 cm pH', value: '6.4', range: '6.0–7.0' },
+          { label: 'Irrigation pH', value: '6.9', range: '6.5–7.5' },
+        ],
+      },
+    ];
   }
 }

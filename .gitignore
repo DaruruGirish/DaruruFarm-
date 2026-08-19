@@ -1,5 +1,14 @@
-// .gitignore
-# Terraform generated files
+# Terraform
 .terraform/
 *.tfstate
 *.tfstate.*
+
+# Secrets and local env
+.env
+backend/.env
+
+# ML weights and downloaded images
+*.pth
+ml/pomegranate_disease/dataset/**/*.jpg
+ml/pomegranate_disease/dataset/**/*.png
+ml/pomegranate_disease/dataset/**/*.jpeg

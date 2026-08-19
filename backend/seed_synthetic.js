@@ -2,6 +2,7 @@ const mysql = require('mysql2/promise');
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
+const julyDailyLogs = require('./july_daily_logs');
 
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -114,16 +115,45 @@ function generateBinaryPng(width, height, c1, c2, c3, badgeColor) {
   return Buffer.concat([sig, ihdr, idat, iend]);
 }
 
-// Generate valid images
+const galleryPhotos = [
+  {
+    filename: 'pomegranate_healthy_1.png',
+    caption: 'Healthy pomegranate plant - field canopy check',
+    uploadedAt: '2026-07-04 15:00:00',
+  },
+  {
+    filename: 'pomegranate_healthy_fruit.jpg',
+    caption: 'Opened healthy fruit - quality and aril check',
+    uploadedAt: '2026-07-10 15:00:00',
+  },
+  {
+    filename: 'pomegranate_diseased_leaf.jpg',
+    caption: 'Diseased leaf spotted during field scout',
+    uploadedAt: '2026-07-16 15:00:00',
+  },
+  {
+    filename: 'pomegranate_cercospora_fruit.jpg',
+    caption: 'Cercospora fruit spot sample from orchard walk',
+    uploadedAt: '2026-07-22 15:00:00',
+  },
+  {
+    filename: 'pomegranate_infected_fruit.jpg',
+    caption: 'Infected fruit - post-rain inspection',
+    uploadedAt: '2026-07-27 15:00:00',
+  },
+];
+
+const farmPhotosDir = path.join(__dirname, '..', 'DaruruFarms_Pomegranate_5_Images');
+for (const photo of galleryPhotos) {
+  const src = path.join(farmPhotosDir, photo.filename);
+  if (!fs.existsSync(src)) {
+    throw new Error(`Missing farm photo: ${src}`);
+  }
+  fs.copyFileSync(src, path.join(uploadsDir, photo.filename));
+}
+
+// Disease-event placeholders (gallery uses real Daruru Farm photos above)
 const imageSpecs = [
-  { name: 'mango-field-july-01', c1: [16, 185, 129], c2: [6, 78, 59], c3: [5, 150, 105], badge: [52, 211, 153] },
-  { name: 'mango-field-july-02', c1: [14, 165, 233], c2: [12, 74, 110], c3: [2, 132, 199], badge: [56, 189, 248] },
-  { name: 'mango-field-july-03', c1: [245, 158, 11], c2: [113, 63, 18], c3: [217, 119, 6], badge: [251, 191, 36] },
-  { name: 'mango-field-july-04', c1: [34, 197, 94], c2: [20, 83, 45], c3: [22, 163, 74], badge: [74, 222, 128] },
-  { name: 'apple-field-july-05', c1: [244, 63, 94], c2: [136, 19, 55], c3: [225, 29, 72], badge: [251, 113, 133] },
-  { name: 'apple-field-july-06', c1: [168, 85, 247], c2: [88, 28, 135], c3: [147, 51, 234], badge: [192, 132, 252] },
-  { name: 'apple-field-july-07', c1: [59, 130, 246], c2: [30, 58, 138], c3: [37, 99, 235], badge: [96, 165, 250] },
-  { name: 'apple-field-july-08', c1: [251, 113, 133], c2: [159, 18, 57], c3: [244, 63, 94], badge: [253, 164, 175] },
   { name: 'anthracnose-01', c1: [239, 68, 68], c2: [127, 29, 29], c3: [220, 38, 38], badge: [248, 113, 113] },
   { name: 'leaf-curl-01', c1: [245, 158, 11], c2: [120, 53, 15], c3: [217, 119, 6], badge: [251, 191, 36] },
   { name: 'fire-blight-01', c1: [220, 38, 38], c2: [127, 29, 29], c3: [185, 28, 28], badge: [239, 68, 68] },
@@ -133,12 +163,11 @@ const imageSpecs = [
 
 imageSpecs.forEach(img => {
   const pngBuffer = generateBinaryPng(640, 420, img.c1, img.c2, img.c3, img.badge);
-  // Write as both .jpg and .png so requests to either extension load properly
   fs.writeFileSync(path.join(uploadsDir, `${img.name}.jpg`), pngBuffer);
   fs.writeFileSync(path.join(uploadsDir, `${img.name}.png`), pngBuffer);
 });
 
-console.log('Valid binary images successfully created in backend/uploads directory.');
+console.log('Copied Daruru Farm gallery photos and created disease placeholders in backend/uploads.');
 
 async function seed() {
   const conn = await mysql.createConnection({
@@ -178,7 +207,7 @@ async function seed() {
 
   for (const user of users) {
     const userId = user.id;
-    console.log(`Seeding full 20-day synthetic telemetry data for user ${userId} (${user.email})...`);
+    console.log(`Seeding July 1–30 daily logs and telemetry for user ${userId} (${user.email})...`);
 
     // 1. Farms
     const [farm1Result] = await conn.query(
@@ -228,209 +257,15 @@ async function seed() {
       );
     }
 
-    // 3. COMPLETE 20 CONSECUTIVE DAYS OF WORK FOR FARM 1 (Green Valley Mango Estate)
-    // From July 12, 2026 to July 31, 2026 — Every single day has realistic, specific operational work
-    const farm1DailyLogs = [
-      {
-        date: '2026-07-12',
-        activityType: 'Harvesting',
-        notes: 'Morning harvest cycle completed in Sector 1; gathered 680kg of prime Alphonso mangoes for export sorting.',
-        pesticideName: null,
-        pesticideQuantity: null,
-        pesticideTime: null,
-      },
-      {
-        date: '2026-07-13',
-        activityType: 'Irrigation',
-        notes: 'Executed 3.5-hour scheduled automated drip irrigation with deep basin saturation across all 20 acres.',
-        pesticideName: null,
-        pesticideQuantity: null,
-        pesticideTime: null,
-      },
-      {
-        date: '2026-07-14',
-        activityType: 'Pest Inspection',
-        notes: 'Conducted tree-by-tree visual scout for mango hopper nymphs and thrips on fresh terminal shoots.',
-        pesticideName: null,
-        pesticideQuantity: null,
-        pesticideTime: null,
-      },
-      {
-        date: '2026-07-15',
-        activityType: 'Pesticide Application',
-        notes: 'Targeted preventive canopy spray across Block A against fungal anthracnose.',
-        pesticideName: 'Mancozeb 75 WP',
-        pesticideQuantity: '5.5 Liters',
-        pesticideTime: '07:30 AM',
-      },
-      {
-        date: '2026-07-16',
-        activityType: 'Pruning',
-        notes: 'Structural canopy aeration and removal of diseased crisscross branches on 140 mature trees.',
-        pesticideName: null,
-        pesticideQuantity: null,
-        pesticideTime: null,
-      },
-      {
-        date: '2026-07-17',
-        activityType: 'Fertilization',
-        notes: 'Venturi drip injection of potassium nitrate (13:0:45) and zinc sulfate micronutrient concentrate.',
-        pesticideName: null,
-        pesticideQuantity: null,
-        pesticideTime: null,
-      },
-      {
-        date: '2026-07-18',
-        activityType: 'Maintenance',
-        notes: 'Cleaned sand gravel media filters and serviced 5HP solar borehole pump motor.',
-        pesticideName: null,
-        pesticideQuantity: null,
-        pesticideTime: null,
-      },
-      {
-        date: '2026-07-19',
-        activityType: 'Pesticide Application',
-        notes: 'Applied protective preventive spray on developing fruit clusters in Block A.',
-        pesticideName: 'Mancozeb',
-        pesticideQuantity: '3.3 Liters',
-        pesticideTime: '07:00 AM',
-      },
-      {
-        date: '2026-07-20',
-        activityType: 'Soil Testing',
-        notes: 'Calibrated telemetry moisture sensors; logged root zone soil electrical conductivity at 1.1 dS/m.',
-        pesticideName: null,
-        pesticideQuantity: null,
-        pesticideTime: null,
-      },
-      {
-        date: '2026-07-21',
-        activityType: 'Fertilization',
-        notes: 'Basal application of 1.5 tons seasoned vermicompost fortified with Trichoderma bio-agent.',
-        pesticideName: null,
-        pesticideQuantity: null,
-        pesticideTime: null,
-      },
-      {
-        date: '2026-07-22',
-        activityType: 'Maintenance',
-        notes: 'Desilted drainage channels and reinforced soil bunds to prevent waterlogging during monsoon showers.',
-        pesticideName: null,
-        pesticideQuantity: null,
-        pesticideTime: null,
-      },
-      {
-        date: '2026-07-23',
-        activityType: 'Irrigation',
-        notes: 'Night cycle drip fertigation; flushed lateral dripper lines and checked emitter flow rate.',
-        pesticideName: null,
-        pesticideQuantity: null,
-        pesticideTime: null,
-      },
-      {
-        date: '2026-07-24',
-        activityType: 'Soil Testing',
-        notes: 'Collected soil core samples at 30cm and 60cm depths; verified balanced pH of 6.5 across North Block.',
-        pesticideName: null,
-        pesticideQuantity: null,
-        pesticideTime: null,
-      },
-      {
-        date: '2026-07-25',
-        activityType: 'Harvesting',
-        notes: 'Second major harvest batch; hand-picked 1,450kg export grade fruit and transferred to packhouse.',
-        pesticideName: null,
-        pesticideQuantity: null,
-        pesticideTime: null,
-      },
-      {
-        date: '2026-07-26',
-        activityType: 'Fertilization',
-        notes: 'Foliar drenching of calcium chloride and boron to strengthen fruit peel and post-harvest shelf life.',
-        pesticideName: null,
-        pesticideQuantity: null,
-        pesticideTime: null,
-      },
-      {
-        date: '2026-07-27',
-        activityType: 'Pest Inspection',
-        notes: 'Monitored fruit fly pheromone traps; recorded zero threshold exceedance across the estate.',
-        pesticideName: null,
-        pesticideQuantity: null,
-        pesticideTime: null,
-      },
-      {
-        date: '2026-07-28',
-        activityType: 'Soil Testing',
-        notes: 'Leaf tissue and petiole sample collection sent for comprehensive micronutrient laboratory assay.',
-        pesticideName: null,
-        pesticideQuantity: null,
-        pesticideTime: null,
-      },
-      {
-        date: '2026-07-29',
-        activityType: 'Pesticide Application',
-        notes: 'Copper Oxychloride bactericidal protective wash following heavy evening rainfall.',
-        pesticideName: 'Copper Oxychloride 50 WP',
-        pesticideQuantity: '4.4 Liters',
-        pesticideTime: '08:00 AM',
-      },
-      {
-        date: '2026-07-30',
-        activityType: 'Soil Testing',
-        notes: 'Subsurface soil moisture tension logged at optimal 25 centibars with automated IoT probes.',
-        pesticideName: null,
-        pesticideQuantity: null,
-        pesticideTime: null,
-      },
-      {
-        date: '2026-07-31',
-        activityType: 'Harvesting',
-        notes: 'Final seasonal harvest sweep across all 20 acres; post-harvest tree washing and estate telemetry audit.',
-        pesticideName: null,
-        pesticideQuantity: null,
-        pesticideTime: null,
-      },
-    ];
-
-    for (const log of farm1DailyLogs) {
-      await conn.query(
-        `INSERT INTO daily_activities (date, activityType, notes, farmId, userId, pesticideName, pesticideQuantity, pesticideTime)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [log.date, log.activityType, log.notes, farm1Id, userId, log.pesticideName, log.pesticideQuantity, log.pesticideTime]
-      );
-    }
-
-    // 20 CONSECUTIVE DAYS OF WORK FOR FARM 2 (Himalayan Apple Orchard)
-    const farm2DailyLogs = [
-      { date: '2026-07-12', activityType: 'Irrigation', notes: 'Micro-sprinkler misting cycle activated to maintain humidity.' },
-      { date: '2026-07-13', activityType: 'Pesticide Application', notes: 'Routine spray protection for orchard perimeter against apple scab.', pName: 'Mancozeb', pQty: '5.2 Liters', pTime: '07:30 AM' },
-      { date: '2026-07-14', activityType: 'Pruning', notes: 'Summer spur pruning and water sprout removal on trellis rows 1-8.' },
-      { date: '2026-07-15', activityType: 'Disease Assessment', notes: 'Inspection of Section A for Fire Blight blossom symptoms.' },
-      { date: '2026-07-16', activityType: 'Harvesting', notes: 'Early picking of early-ripening Gala varieties for local markets.' },
-      { date: '2026-07-17', activityType: 'Harvesting', notes: 'Completed harvest of Block B high-density trellis trees.' },
-      { date: '2026-07-18', activityType: 'Maintenance', notes: 'Tensioned support trellis guide wires and replaced damaged end posts.' },
-      { date: '2026-07-19', activityType: 'Fertilization', notes: 'Foliar calcium nitrate spray to prevent bitter pit disorder.' },
-      { date: '2026-07-20', activityType: 'Pest Inspection', notes: 'San Jose scale and red spider mite population count in Section C.' },
-      { date: '2026-07-21', activityType: 'Soil Testing', notes: 'Soil test for nitrogen absorption rate in high elevation blocks.' },
-      { date: '2026-07-22', activityType: 'Harvesting', notes: 'Main batch Royal Delicious picking commenced across Section A.' },
-      { date: '2026-07-23', activityType: 'Maintenance', notes: 'Serviced cold storage atmosphere monitors and temperature sensors.' },
-      { date: '2026-07-24', activityType: 'Pesticide Application', notes: 'Routine preventive fungal spray against blight and powdery mildew.', pName: 'Mancozeb', pQty: '7.6 Liters', pTime: '07:30 AM' },
-      { date: '2026-07-25', activityType: 'Irrigation', notes: 'Deep root zone saturation using gravity-fed mountain spring water.' },
-      { date: '2026-07-26', activityType: 'Pesticide Application', notes: 'Targeted root zone borer control application in Block A.', pName: 'Chlorpyrifos', pQty: '7.4 Liters', pTime: '07:30 AM' },
-      { date: '2026-07-27', activityType: 'Harvesting', notes: 'Graded and boxed 900kg of premium grade fruit into refrigerated dispatch.' },
-      { date: '2026-07-28', activityType: 'Maintenance', notes: 'Anti-hail netting deployment inspection following weather advisory.' },
-      { date: '2026-07-29', activityType: 'Soil Testing', notes: 'Micro-nutrient moisture test verified for apple root zones.' },
-      { date: '2026-07-30', activityType: 'Fertilization', notes: 'Post-harvest potassium sulphate soil enrichment applied around drip circles.' },
-      { date: '2026-07-31', activityType: 'Harvesting', notes: 'Final harvest batch completed; estate inventory logged into telemetry portal.' },
-    ];
-
-    for (const log of farm2DailyLogs) {
-      await conn.query(
-        `INSERT INTO daily_activities (date, activityType, notes, farmId, userId, pesticideName, pesticideQuantity, pesticideTime)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [log.date, log.activityType, log.notes, farm2Id, userId, log.pName || null, log.pQty || null, log.pTime || null]
-      );
+    // 3. July 1-30 daily field logs (same operational diary on each holding)
+    for (const farmId of [farm1Id, farm2Id]) {
+      for (const log of julyDailyLogs) {
+        await conn.query(
+          `INSERT INTO daily_activities (date, activityType, notes, farmId, userId, pesticideName, pesticideQuantity, pesticideTime)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [log.date, log.activityType, log.notes, farmId, userId, log.pesticideName || null, log.pesticideQuantity || null, log.pesticideTime || null]
+        );
+      }
     }
 
     // 4. Disease Events
@@ -450,23 +285,14 @@ async function seed() {
       );
     }
 
-    // 5. Gallery Images
-    const rawGallery = [
-      { farm_id: 1, filename: 'mango-field-july-01.jpg', caption: 'High-resolution capture of canopy growth in North Block', uploadedAt: '2026-07-04 15:00:00' },
-      { farm_id: 1, filename: 'mango-field-july-02.jpg', caption: 'Irrigation emitter inspection across South Block', uploadedAt: '2026-07-07 15:00:00' },
-      { farm_id: 1, filename: 'mango-field-july-03.jpg', caption: 'Flowering and early fruit formation telemetry', uploadedAt: '2026-07-10 15:00:00' },
-      { farm_id: 1, filename: 'mango-field-july-04.jpg', caption: 'Post-pruning canopy aeration status', uploadedAt: '2026-07-13 15:00:00' },
-      { farm_id: 2, filename: 'apple-field-july-05.jpg', caption: 'High density apple orchard trellis inspection', uploadedAt: '2026-07-16 15:00:00' },
-      { farm_id: 2, filename: 'apple-field-july-06.jpg', caption: 'Fruit thinning and sizing check', uploadedAt: '2026-07-19 15:00:00' },
-      { farm_id: 2, filename: 'apple-field-july-07.jpg', caption: 'Soil moisture sensor array installation', uploadedAt: '2026-07-22 15:00:00' },
-      { farm_id: 2, filename: 'apple-field-july-08.jpg', caption: 'Pre-harvest color development tracking', uploadedAt: '2026-07-25 15:00:00' },
-    ];
-
-    for (const g of rawGallery) {
+    // 5. Gallery Images — real Daruru Farm pomegranate photos
+    for (let i = 0; i < galleryPhotos.length; i++) {
+      const photo = galleryPhotos[i];
+      const farmId = i < 3 ? farm1Id : farm2Id;
       await conn.query(
         `INSERT INTO gallery_images (filename, caption, uploadedAt, farmId, userId)
          VALUES (?, ?, ?, ?, ?)`,
-        [g.filename, g.caption, g.uploadedAt, farmIdMap[g.farm_id], userId]
+        [photo.filename, photo.caption, photo.uploadedAt, farmId, userId]
       );
     }
 

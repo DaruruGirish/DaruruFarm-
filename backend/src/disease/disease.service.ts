@@ -1,19 +1,39 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, ServiceUnavailableException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { DiseaseEvent } from './disease-event.entity';
+import { DiseasePrediction } from './disease-prediction.entity';
 import { Farm } from '../farm/farm.entity';
+import { GalleryImage } from '../gallery/gallery-image.entity';
 import { User } from '../auth/user.entity';
+import { userHasPremium } from '../auth/plan';
 import * as fs from 'fs';
 import { join } from 'path';
+
+type VisionResult = {
+  plant_part: string;
+  disease: string;
+  confidence: number;
+  uncertain?: boolean;
+  top_predictions: { disease: string; confidence: number }[];
+  trained?: boolean;
+};
 
 @Injectable()
 export class DiseaseService {
   constructor(
     @InjectRepository(DiseaseEvent)
     private diseaseRepository: Repository<DiseaseEvent>,
+    @InjectRepository(DiseasePrediction)
+    private predictionRepository: Repository<DiseasePrediction>,
     @InjectRepository(Farm)
     private farmRepository: Repository<Farm>,
+    @InjectRepository(GalleryImage)
+    private galleryRepository: Repository<GalleryImage>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+    private configService: ConfigService,
   ) {}
 
   // Log a new crop disease incident
@@ -167,5 +187,116 @@ export class DiseaseService {
         pest_inspection_count: pest_inspections,
       },
     };
+  }
+
+  async findPredictions(user: User): Promise<DiseasePrediction[]> {
+    return this.predictionRepository.find({
+      where: { user: { id: user.id } },
+      relations: { farm: true },
+      order: { createdAt: 'DESC', id: 'DESC' },
+    });
+  }
+
+  async predictFromUpload(filename: string, plantPart: string, farmId: number | undefined, user: User) {
+    await this.assertPremium(user);
+    const filePath = join(process.cwd(), 'uploads', filename);
+    const vision = await this.callVision(filePath, plantPart);
+    const saved = await this.savePrediction(filename, plantPart, vision, farmId, user);
+    return { ...vision, prediction: saved };
+  }
+
+  async predictFromGallery(galleryId: number, plantPart: string, farmId: number | undefined, user: User) {
+    await this.assertPremium(user);
+    const image = await this.galleryRepository.findOne({
+      where: { id: galleryId, user: { id: user.id } },
+      relations: { farm: true },
+    });
+    if (!image) {
+      throw new NotFoundException('Gallery image not found');
+    }
+    const filePath = join(process.cwd(), 'uploads', image.filename);
+    if (!fs.existsSync(filePath)) {
+      throw new NotFoundException('Gallery image file is missing on disk');
+    }
+    const vision = await this.callVision(filePath, plantPart);
+    const resolvedFarmId = farmId ?? image.farm?.id;
+    const saved = await this.savePrediction(image.filename, plantPart, vision, resolvedFarmId, user);
+    return { ...vision, prediction: saved, source: 'gallery', galleryId: image.id };
+  }
+
+  private async assertPremium(user: User) {
+    const owner = await this.userRepository.findOne({ where: { id: user.id } });
+    if (!userHasPremium(owner)) {
+      throw new ForbiddenException('Photo analysis is a Premium feature (₹3,000/year).');
+    }
+  }
+
+  private async savePrediction(
+    filename: string,
+    plantPart: string,
+    vision: VisionResult,
+    farmId: number | undefined,
+    user: User,
+  ): Promise<DiseasePrediction> {
+    let farm: Farm | null = null;
+    if (farmId) {
+      farm = await this.farmRepository.findOne({
+        where: { id: farmId, user: { id: user.id } },
+      });
+    }
+
+    const row = this.predictionRepository.create({
+      imageUrl: filename,
+      predictedDisease: vision.disease,
+      confidence: vision.confidence,
+      plantPart,
+      uncertain: Boolean(vision.uncertain),
+      topPredictions: vision.top_predictions,
+      farm,
+      user,
+    });
+    return this.predictionRepository.save(row);
+  }
+
+  private async callVision(filePath: string, plantPart: string): Promise<VisionResult> {
+    if (plantPart !== 'leaf' && plantPart !== 'fruit') {
+      throw new BadRequestException("plant_part must be 'leaf' or 'fruit'");
+    }
+
+    const mlUrl = this.configService.get<string>('ML_SERVICE_URL') || 'http://127.0.0.1:8000';
+    const buffer = fs.readFileSync(filePath);
+    const filename = filePath.split(/[/\\]/).pop() || 'crop.jpg';
+    const ext = filename.split('.').pop()?.toLowerCase();
+    const mime =
+      ext === 'png' ? 'image/png'
+      : ext === 'webp' ? 'image/webp'
+      : ext === 'gif' ? 'image/gif'
+      : ext === 'bmp' ? 'image/bmp'
+      : 'image/jpeg';
+    const form = new FormData();
+    form.append('file', new Blob([new Uint8Array(buffer)], { type: mime }), filename);
+
+    let response: Response;
+    try {
+      response = await fetch(`${mlUrl}/predict/${plantPart}`, {
+        method: 'POST',
+        body: form,
+      });
+    } catch {
+      throw new ServiceUnavailableException(
+        'Photo analysis is not ready yet. The image model still needs to be trained and started.',
+      );
+    }
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      if (response.status === 400) {
+        throw new BadRequestException('This file could not be read as a crop photo. Try another image.');
+      }
+      throw new ServiceUnavailableException(
+        'Photo analysis is not ready yet. The image model still needs to be trained and started.',
+      );
+    }
+    return payload as VisionResult;
   }
 }

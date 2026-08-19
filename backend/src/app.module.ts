@@ -11,6 +11,9 @@ import { DailyActivityModule } from './daily-activity/daily-activity.module';
 import { GalleryModule } from './gallery/gallery.module';
 import { DiseaseModule } from './disease/disease.module';
 import { ContactModule } from './contact/contact.module';
+import { LabReportModule } from './lab-report/lab-report.module';
+import { TodoModule } from './todo/todo.module';
+import { BillingModule } from './billing/billing.module';
 
 @Module({
   imports: [
@@ -44,6 +47,9 @@ import { ContactModule } from './contact/contact.module';
     GalleryModule,
     DiseaseModule,
     ContactModule,
+    LabReportModule,
+    TodoModule,
+    BillingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

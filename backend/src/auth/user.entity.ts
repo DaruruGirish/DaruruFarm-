@@ -13,4 +13,10 @@ export class User {
 
   @Column()
   password: string; // In a production app, password would be stored securely (hashed) and never sent back to the client.
+
+  @Column({ type: 'varchar', length: 20, default: 'free' })
+  plan: string;
+
+  @Column({ type: 'datetime', nullable: true })
+  premiumUntil: Date | null;
 }

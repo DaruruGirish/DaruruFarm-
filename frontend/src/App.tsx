@@ -23,14 +23,15 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('daruru_token');
+    sessionStorage.removeItem('daruru_location_prompt_skipped');
     setToken(null);
   };
 
   if (initializing) {
     return (
-      <div className="w-full min-h-screen bg-[#08090d] flex flex-col items-center justify-center gap-4">
-        <div className="w-10 h-10 border-2 border-emerald-500/10 border-t-emerald-500 rounded-full animate-spin"></div>
-        <p className="text-zinc-500 text-sm font-medium tracking-wide">Syncing farm telemetry...</p>
+      <div className="w-full min-h-screen bg-[#f3efe4] flex flex-col items-center justify-center gap-4">
+        <div className="w-10 h-10 border-2 border-emerald-500/15 border-t-emerald-500 rounded-full animate-spin"></div>
+        <p className="text-zinc-500 text-sm font-medium tracking-wide">Loading Daruru Farms…</p>
       </div>
     );
   }
@@ -38,13 +39,13 @@ function App() {
   return (
     <>
       <Toaster 
-        theme="dark" 
+        theme="light" 
         position="top-right" 
         toastOptions={{
           style: {
-            background: 'rgba(10, 11, 16, 0.95)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            color: '#f4f4f5',
+            background: '#fffdf8',
+            border: '1px solid rgba(44, 74, 42, 0.12)',
+            color: '#243026',
             backdropFilter: 'blur(8px)',
           }
         }} 

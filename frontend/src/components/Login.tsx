@@ -80,9 +80,8 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="w-full min-h-screen bg-[#05060b] flex items-center justify-center p-6 select-none relative overflow-hidden">
-      {/* Background ambient glows */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-[120px] pointer-events-none" />
+    <div className="w-full min-h-screen bg-[#f3efe4] flex items-center justify-center p-6 select-none relative overflow-hidden">
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-emerald-700/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-10 w-[300px] h-[300px] bg-violet-500/5 rounded-full blur-[100px] pointer-events-none" />
 
       <motion.div
@@ -92,14 +91,14 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         className="w-full max-w-[420px] glass-panel p-8 rounded-2xl relative border-gradient shadow-2xl"
       >
         <div className="flex flex-col items-center text-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-500/20 to-indigo-400/5 flex items-center justify-center border border-indigo-500/30 mb-4 shadow-[0_0_20px_rgba(99,102,241,0.15)]">
-            <Sprout className="w-6 h-6 text-indigo-400" />
+          <div className="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center justify-center border border-emerald-500/30 mb-4">
+            <Sprout className="w-6 h-6 text-emerald-400" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white mb-1.5 bg-gradient-to-r from-zinc-100 to-zinc-400 bg-clip-text text-transparent">
-            {isLoginMode ? 'Daruru Farm' : 'Create an Account'}
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 mb-1.5">
+            {isLoginMode ? 'Daruru Farms' : 'Create an account'}
           </h1>
           <p className="text-sm text-zinc-500 font-medium">
-            {isLoginMode ? 'Sign in to access your agricultural cockpit' : 'Get started with enterprise farm telemetry'}
+            {isLoginMode ? 'Sign in to manage holdings, logs, and crop health' : 'Create an account to start recording farm operations'}
           </p>
         </div>
 
@@ -139,12 +138,12 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 transition={{ duration: 0.25 }}
                 className="space-y-1.5 overflow-hidden"
               >
-                <label className="text-xs font-semibold text-zinc-400 tracking-wide uppercase">Full Name</label>
+                <label className="text-xs font-semibold text-zinc-600 tracking-wide uppercase">Full Name</label>
                 <div className="relative flex items-center">
                   <User className="absolute left-3.5 text-zinc-500 w-4 h-4" />
                   <input
                     type="text"
-                    className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 focus:ring-1 focus:ring-zinc-700 rounded-lg py-2.5 pl-10 pr-4 text-sm text-white placeholder-zinc-600 outline-none transition-all duration-200"
+                    className="w-full bg-white border border-zinc-200 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700/20 rounded-lg py-2.5 pl-10 pr-4 text-sm text-zinc-800 placeholder-zinc-400 outline-none transition-all duration-200"
                     placeholder="John Doe"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -156,12 +155,12 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           </AnimatePresence>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-zinc-400 tracking-wide uppercase">Email Address</label>
+            <label className="text-xs font-semibold text-zinc-600 tracking-wide uppercase">Email Address</label>
             <div className="relative flex items-center">
               <Mail className="absolute left-3.5 text-zinc-500 w-4 h-4" />
               <input
                 type="email"
-                className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 focus:ring-1 focus:ring-zinc-700 rounded-lg py-2.5 pl-10 pr-4 text-sm text-white placeholder-zinc-600 outline-none transition-all duration-200"
+                className="w-full bg-white border border-zinc-200 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700/20 rounded-lg py-2.5 pl-10 pr-4 text-sm text-zinc-800 placeholder-zinc-400 outline-none transition-all duration-200"
                 placeholder="john@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -172,13 +171,13 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
-              <label className="text-xs font-semibold text-zinc-400 tracking-wide uppercase">Password</label>
+              <label className="text-xs font-semibold text-zinc-600 tracking-wide uppercase">Password</label>
             </div>
             <div className="relative flex items-center">
               <Lock className="absolute left-3.5 text-zinc-500 w-4 h-4" />
               <input
                 type="password"
-                className="w-full bg-[#0d0e12]/60 border border-zinc-800 focus:border-zinc-700 focus:ring-1 focus:ring-zinc-700 rounded-lg py-2.5 pl-10 pr-4 text-sm text-white placeholder-zinc-600 outline-none transition-all duration-200"
+                className="w-full bg-white border border-zinc-200 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700/20 rounded-lg py-2.5 pl-10 pr-4 text-sm text-zinc-800 placeholder-zinc-400 outline-none transition-all duration-200"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -190,10 +189,10 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full relative mt-2 bg-zinc-100 hover:bg-white text-zinc-950 font-semibold text-sm py-2.5 rounded-lg transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none shadow-[0_1px_2px_rgba(0,0,0,0.1)]"
+            className="w-full relative mt-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm py-2.5 rounded-xl transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
           >
             {loading ? (
-              <div className="w-5 h-5 border-2 border-zinc-950/20 border-t-zinc-950 rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
             ) : isLoginMode ? (
               <>
                 <LogIn className="w-4 h-4" />
@@ -208,15 +207,16 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           </button>
         </form>
 
-        <div className="mt-6 pt-5 border-t border-zinc-900/60 text-center text-xs text-zinc-500 font-medium">
+        <div className="mt-6 pt-5 border-t border-zinc-200 text-center text-xs text-zinc-500 font-medium">
           <span>{isLoginMode ? "Don't have an account? " : "Already have an account? "}</span>
           <button
             type="button"
             onClick={toggleMode}
-            className="text-zinc-300 hover:text-white font-semibold transition-colors duration-150 cursor-pointer"
+            className="text-emerald-800 hover:text-emerald-950 font-semibold transition-colors duration-150 cursor-pointer"
           >
             {isLoginMode ? 'Sign up here' : 'Sign in here'}
           </button>
+          <p className="mt-3 text-zinc-500">Premium is ₹3,000 per year. After you sign in, open Plans and pay with UPI, card, or netbanking.</p>
         </div>
       </motion.div>
     </div>

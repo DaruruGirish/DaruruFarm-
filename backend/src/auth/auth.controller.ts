@@ -40,4 +40,5 @@ export class AuthController {
   async getProfile(@Request() req: any) {
     return this.authService.getProfile(req.user.id);
   }
+
 }

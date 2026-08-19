@@ -2,6 +2,7 @@ import { Injectable, ConflictException, UnauthorizedException, BadRequestExcepti
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
+import { PREMIUM_PRICE_INR, isComplimentaryPremiumEmail, premiumUntilFrom, premiumUntilFromNow, userHasPremium } from './plan';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 
@@ -33,10 +34,13 @@ export class AuthService {
     // Hash the password before saving it to DB
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    const complimentary = isComplimentaryPremiumEmail(email);
     const user = this.userRepository.create({
       name,
       email,
       password: hashedPassword,
+      plan: complimentary ? 'premium' : 'free',
+      premiumUntil: complimentary ? premiumUntilFromNow() : null,
     });
 
     const savedUser = await this.userRepository.save(user);
@@ -70,11 +74,45 @@ export class AuthService {
   }
 
   // Retrieve user details from database by ID
-  async getProfile(userId: number): Promise<User> {
+  async getProfile(userId: number): Promise<Omit<User, 'password'>> {
+    const user = await this.ensureComplimentaryPremium(
+      await this.userRepository.findOne({ where: { id: userId } }),
+    );
+    if (!user) {
+      throw new UnauthorizedException('User profile not found');
+    }
+    const { password: _password, ...safe } = user;
+    return safe;
+  }
+
+  async subscribePremium(userId: number) {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new UnauthorizedException('User profile not found');
     }
-    return user;
+    const now = new Date();
+    const currentEnd = user.premiumUntil ? new Date(user.premiumUntil) : now;
+    const start = currentEnd.getTime() > now.getTime() ? currentEnd : now;
+    user.plan = 'premium';
+    user.premiumUntil = premiumUntilFrom(start);
+    await this.userRepository.save(user);
+    const { password: _password, ...safe } = user;
+    return {
+      ...safe,
+      priceInr: PREMIUM_PRICE_INR,
+      period: 'year',
+    };
+  }
+
+  hasPremium(user: { email?: string | null; plan?: string | null; premiumUntil?: Date | string | null } | null) {
+    return userHasPremium(user);
+  }
+
+  private async ensureComplimentaryPremium(user: User | null): Promise<User | null> {
+    if (!user || !isComplimentaryPremiumEmail(user.email)) return user;
+    if (userHasPremium(user) && user.plan === 'premium') return user;
+    user.plan = 'premium';
+    user.premiumUntil = premiumUntilFromNow();
+    return this.userRepository.save(user);
   }
 }
