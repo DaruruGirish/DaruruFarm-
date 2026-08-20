@@ -21,6 +21,7 @@ let DailyActivity = class DailyActivity {
     pesticideName;
     pesticideQuantity;
     pesticideTime;
+    waterHours;
     farm;
     user;
 };
@@ -53,6 +54,10 @@ __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
 ], DailyActivity.prototype, "pesticideTime", void 0);
+__decorate([
+    (0, typeorm_1.Column)('decimal', { precision: 6, scale: 2, nullable: true }),
+    __metadata("design:type", Object)
+], DailyActivity.prototype, "waterHours", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => farm_entity_1.Farm, { onDelete: 'CASCADE' }),
     __metadata("design:type", farm_entity_1.Farm)

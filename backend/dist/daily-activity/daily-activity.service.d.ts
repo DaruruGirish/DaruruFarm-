@@ -7,7 +7,9 @@ import { User } from '../auth/user.entity';
 export declare class DailyActivityService {
     private dailyActivityRepository;
     private farmRepository;
-    constructor(dailyActivityRepository: Repository<DailyActivity>, farmRepository: Repository<Farm>);
+    private userRepository;
+    constructor(dailyActivityRepository: Repository<DailyActivity>, farmRepository: Repository<Farm>, userRepository: Repository<User>);
+    private requirePremium;
     create(createActivityDto: CreateActivityDto, user: User): Promise<DailyActivity>;
     findAll(user: User): Promise<DailyActivity[]>;
     findOne(id: number, user: User): Promise<DailyActivity>;

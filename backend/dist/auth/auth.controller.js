@@ -17,8 +17,6 @@ const common_1 = require("@nestjs/common");
 const auth_service_1 = require("./auth.service");
 const passport_1 = require("@nestjs/passport");
 const swagger_1 = require("@nestjs/swagger");
-const register_dto_1 = require("./dto/register.dto");
-const login_dto_1 = require("./dto/login.dto");
 let AuthController = class AuthController {
     authService;
     constructor(authService) {
@@ -26,14 +24,43 @@ let AuthController = class AuthController {
     }
     async register(registerDto) {
         const { name, email, password } = registerDto;
-        return this.authService.register(name, email, password);
+        return this.authService.register(name, email, password, {
+            startTrial: registerDto.startTrial !== false,
+        });
+    }
+    async startFreeTrial(body) {
+        return this.authService.register(body.name, body.email, body.password, {
+            startTrial: true,
+            returnToken: true,
+        });
     }
     async login(loginDto) {
-        const { email, password } = loginDto;
-        return this.authService.login(email, password);
+        const identifier = (loginDto.email || loginDto.username || '').trim();
+        return this.authService.login(identifier, loginDto.password);
+    }
+    async googleLogin(body) {
+        return this.authService.loginWithGoogle({
+            idToken: body.credential || body.idToken,
+            accessToken: body.accessToken,
+        });
+    }
+    async inspectorLogin(body) {
+        return this.authService.inspectorLogin(body.username || body.email || '', body.password);
     }
     async getProfile(req) {
-        return this.authService.getProfile(req.user.id);
+        return this.authService.getProfile(req.user.id, req.user);
+    }
+    listViewers(req) {
+        this.authService.assertOwner(req.user);
+        return this.authService.listViewers(req.user.id);
+    }
+    createViewer(body, req) {
+        this.authService.assertOwner(req.user);
+        return this.authService.createViewer(req.user.id, body.name, body.username, body.password);
+    }
+    removeViewer(id, req) {
+        this.authService.assertOwner(req.user);
+        return this.authService.removeViewer(req.user.id, Number(id));
     }
 };
 exports.AuthController = AuthController;
@@ -44,9 +71,18 @@ __decorate([
     (0, swagger_1.ApiResponse)({ status: 409, description: 'Email already registered.' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [register_dto_1.RegisterDto]),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "register", null);
+__decorate([
+    (0, common_1.Post)('free-trial'),
+    (0, swagger_1.ApiOperation)({ summary: 'Create an account with a 2-day Premium trial and return an access token' }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'Trial account created and signed in.' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "startFreeTrial", null);
 __decorate([
     (0, common_1.Post)('login'),
     (0, swagger_1.ApiOperation)({ summary: 'User Login' }),
@@ -54,9 +90,29 @@ __decorate([
     (0, swagger_1.ApiResponse)({ status: 401, description: 'Invalid email or password.' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [login_dto_1.LoginDto]),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "login", null);
+__decorate([
+    (0, common_1.Post)('google'),
+    (0, swagger_1.ApiOperation)({ summary: 'Sign in or register with a Google ID token' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Successfully signed in. Returns access token.' }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Google token invalid.' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "googleLogin", null);
+__decorate([
+    (0, common_1.Post)('inspector-login'),
+    (0, swagger_1.ApiOperation)({ summary: 'Inspector (view-only) login with username and password' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Successfully logged in. Returns access token.' }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: 'Invalid username or password.' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "inspectorLogin", null);
 __decorate([
     (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     (0, common_1.Get)('profile'),
@@ -69,6 +125,38 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "getProfile", null);
+__decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.Get)('viewers'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'List inspector (view-only) logins for this farm owner' }),
+    __param(0, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "listViewers", null);
+__decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.Post)('viewers'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Create an inspector username and password (view-only)' }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "createViewer", null);
+__decorate([
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.Delete)('viewers/:id'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Remove an inspector login' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "removeViewer", null);
 exports.AuthController = AuthController = __decorate([
     (0, swagger_1.ApiTags)('Authentication'),
     (0, common_1.Controller)('auth'),

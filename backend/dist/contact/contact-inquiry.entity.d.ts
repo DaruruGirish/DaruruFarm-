@@ -6,5 +6,5 @@ export declare class ContactInquiry {
     subject: string;
     message: string;
     submittedAt: Date;
-    user: User;
+    user: User | null;
 }

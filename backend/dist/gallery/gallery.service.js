@@ -51,16 +51,25 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const gallery_image_entity_1 = require("./gallery-image.entity");
 const farm_entity_1 = require("../farm/farm.entity");
+const user_entity_1 = require("../auth/user.entity");
+const premium_access_1 = require("../auth/premium-access");
 const fs = __importStar(require("fs"));
 const path_1 = require("path");
 let GalleryService = class GalleryService {
     galleryRepository;
     farmRepository;
-    constructor(galleryRepository, farmRepository) {
+    userRepository;
+    constructor(galleryRepository, farmRepository, userRepository) {
         this.galleryRepository = galleryRepository;
         this.farmRepository = farmRepository;
+        this.userRepository = userRepository;
+    }
+    async requirePremium(userId, featureLabel) {
+        const owner = await this.userRepository.findOne({ where: { id: userId } });
+        (0, premium_access_1.assertPremiumAccess)(owner, featureLabel);
     }
     async create(filename, caption, farmId, user) {
+        await this.requirePremium(user.id, 'Gallery');
         let farm = null;
         if (farmId) {
             farm = await this.farmRepository.findOne({
@@ -79,6 +88,7 @@ let GalleryService = class GalleryService {
         return this.galleryRepository.save(image);
     }
     async findAll(user) {
+        await this.requirePremium(user.id, 'Gallery');
         return this.galleryRepository.find({
             where: { user: { id: user.id } },
             relations: { farm: true },
@@ -114,7 +124,9 @@ exports.GalleryService = GalleryService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(gallery_image_entity_1.GalleryImage)),
     __param(1, (0, typeorm_1.InjectRepository)(farm_entity_1.Farm)),
+    __param(2, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository])
 ], GalleryService);
 //# sourceMappingURL=gallery.service.js.map

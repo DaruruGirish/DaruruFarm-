@@ -1,9 +1,12 @@
 const mysql = require('mysql2/promise');
 const fs = require('fs');
 const path = require('path');
+const { assertDevSeedAllowed, dbConfig } = require('./env');
 
-const uploadsDir = path.join(__dirname, 'uploads');
-const farmPhotosDir = path.join(__dirname, '..', 'DaruruFarms_Pomegranate_5_Images');
+assertDevSeedAllowed();
+
+const uploadsDir = path.join(__dirname, '..', '..', 'backend', 'uploads');
+const farmPhotosDir = path.join(__dirname, 'fixtures');
 
 const galleryPhotos = [
   {
@@ -46,13 +49,7 @@ async function run() {
     fs.copyFileSync(src, path.join(uploadsDir, photo.filename));
   }
 
-  const conn = await mysql.createConnection({
-    host: '127.0.0.1',
-    port: 3306,
-    user: 'root',
-    password: 'Bunny2026$',
-    database: 'daruru_farm',
-  });
+  const conn = await mysql.createConnection(dbConfig());
 
   await conn.query('DELETE FROM gallery_images');
   await conn.query('ALTER TABLE gallery_images AUTO_INCREMENT = 1');

@@ -1,14 +1,16 @@
 # syntax=docker/dockerfile:1
-# CPU TensorFlow image for DenseNet121 + Grad-CAM++ + HBDS inference
+# CPU TensorFlow + Keras 3 for DenseNet121 + Grad-CAM++ + HBDS inference
+# Models were saved as Keras 3 .keras — TF 2.15 (Keras 2) cannot load them.
 
-FROM tensorflow/tensorflow:2.15.0
+FROM tensorflow/tensorflow:2.17.0
 
 WORKDIR /app
 
 COPY requirements.docker.txt ./requirements.txt
-# Base image already includes TensorFlow; install only inference extras.
-# --ignore-installed: TF image ships distutils blinker that pip cannot uninstall.
-RUN pip install --no-cache-dir --ignore-installed -r requirements.txt
+# Base image includes TensorFlow/Keras. Only install inference extras.
+# blinker: distutils copy in some TF images cannot be uninstalled cleanly.
+RUN pip install --no-cache-dir --ignore-installed blinker \
+    && pip install --no-cache-dir -r requirements.txt
 
 COPY infer.py serve.py ./
 COPY models ./models

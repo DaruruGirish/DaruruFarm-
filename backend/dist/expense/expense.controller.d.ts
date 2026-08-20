@@ -4,6 +4,7 @@ import { UpdateExpenseDto } from './dto/update-expense.dto';
 export declare class ExpenseController {
     private readonly expenseService;
     constructor(expenseService: ExpenseService);
+    private assertExpenseAccess;
     create(createExpenseDto: CreateExpenseDto, req: any): Promise<import("./expense.entity").Expense>;
     findAll(req: any): Promise<import("./expense.entity").Expense[]>;
     findOne(id: string, req: any): Promise<import("./expense.entity").Expense>;

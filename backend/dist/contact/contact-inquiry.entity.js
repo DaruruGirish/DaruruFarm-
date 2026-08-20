@@ -47,8 +47,8 @@ __decorate([
     __metadata("design:type", Date)
 ], ContactInquiry.prototype, "submittedAt", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => user_entity_1.User, { onDelete: 'CASCADE' }),
-    __metadata("design:type", user_entity_1.User)
+    (0, typeorm_1.ManyToOne)(() => user_entity_1.User, { onDelete: 'CASCADE', nullable: true }),
+    __metadata("design:type", Object)
 ], ContactInquiry.prototype, "user", void 0);
 exports.ContactInquiry = ContactInquiry = __decorate([
     (0, typeorm_1.Entity)('contact_inquiries')

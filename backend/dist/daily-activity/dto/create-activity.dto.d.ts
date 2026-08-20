@@ -6,4 +6,5 @@ export declare class CreateActivityDto {
     pesticideName?: string;
     pesticideQuantity?: string;
     pesticideTime?: string;
+    waterHours?: number;
 }

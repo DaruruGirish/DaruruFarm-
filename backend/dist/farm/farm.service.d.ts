@@ -5,7 +5,8 @@ import { UpdateFarmDto } from './dto/update-farm.dto';
 import { User } from '../auth/user.entity';
 export declare class FarmService {
     private farmRepository;
-    constructor(farmRepository: Repository<Farm>);
+    private userRepository;
+    constructor(farmRepository: Repository<Farm>, userRepository: Repository<User>);
     create(createFarmDto: CreateFarmDto, user: User): Promise<Farm>;
     findAll(user: User): Promise<Farm[]>;
     findOne(id: number, user: User): Promise<Farm>;

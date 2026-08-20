@@ -19,6 +19,7 @@ class UpdateActivityDto {
     pesticideName;
     pesticideQuantity;
     pesticideTime;
+    waterHours;
 }
 exports.UpdateActivityDto = UpdateActivityDto;
 __decorate([
@@ -49,4 +50,8 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: '08:30 AM' }),
     __metadata("design:type", String)
 ], UpdateActivityDto.prototype, "pesticideTime", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 4.5, description: 'Hours of water supplied (Water Supply logs)' }),
+    __metadata("design:type", Number)
+], UpdateActivityDto.prototype, "waterHours", void 0);
 //# sourceMappingURL=update-activity.dto.js.map

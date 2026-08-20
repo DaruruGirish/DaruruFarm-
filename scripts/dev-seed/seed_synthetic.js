@@ -3,8 +3,11 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 const julyDailyLogs = require('./july_daily_logs');
+const { assertDevSeedAllowed, dbConfig } = require('./env');
 
-const uploadsDir = path.join(__dirname, 'uploads');
+assertDevSeedAllowed();
+
+const uploadsDir = path.join(__dirname, '..', '..', 'backend', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -143,7 +146,7 @@ const galleryPhotos = [
   },
 ];
 
-const farmPhotosDir = path.join(__dirname, '..', 'DaruruFarms_Pomegranate_5_Images');
+const farmPhotosDir = path.join(__dirname, 'fixtures');
 for (const photo of galleryPhotos) {
   const src = path.join(farmPhotosDir, photo.filename);
   if (!fs.existsSync(src)) {
@@ -170,13 +173,7 @@ imageSpecs.forEach(img => {
 console.log('Copied Daruru Farm gallery photos and created disease placeholders in backend/uploads.');
 
 async function seed() {
-  const conn = await mysql.createConnection({
-    host: '127.0.0.1',
-    port: 3306,
-    user: 'root',
-    password: 'Bunny2026$',
-    database: 'daruru_farm',
-  });
+  const conn = await mysql.createConnection(dbConfig());
 
   console.log('Connected to MySQL daruru_farm database.');
 

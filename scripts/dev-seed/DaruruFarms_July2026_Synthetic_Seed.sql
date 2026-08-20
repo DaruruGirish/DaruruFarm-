@@ -1,3 +1,7 @@
+-- OUTDATED ARCHIVE — local UI testing only.
+-- Do not run this on production. Prefer: cd backend && npm run seed:dev
+-- Schema here does not match the current Nest entities.
+
 INSERT INTO farms (id,name,address,total_acreage,number_of_trees,crop_season_start_date,owner_name,created_at) VALUES
 (1,'Green Valley Mango Estate','Mysuru, Karnataka',20,2350,'2026-07-01','Ramesh Gowda','2026-07-01 09:00:00'),
 (2,'Himalayan Apple Orchard','Shimla, Himachal Pradesh',15,1420,'2026-07-01','Amit Thakur','2026-07-01 09:00:00');

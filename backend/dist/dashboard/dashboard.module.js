@@ -14,12 +14,14 @@ const dashboard_service_1 = require("./dashboard.service");
 const expense_entity_1 = require("../expense/expense.entity");
 const daily_activity_entity_1 = require("../daily-activity/daily-activity.entity");
 const disease_event_entity_1 = require("../disease/disease-event.entity");
+const farm_entity_1 = require("../farm/farm.entity");
+const weather_module_1 = require("../weather/weather.module");
 let DashboardModule = class DashboardModule {
 };
 exports.DashboardModule = DashboardModule;
 exports.DashboardModule = DashboardModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([expense_entity_1.Expense, daily_activity_entity_1.DailyActivity, disease_event_entity_1.DiseaseEvent])],
+        imports: [typeorm_1.TypeOrmModule.forFeature([expense_entity_1.Expense, daily_activity_entity_1.DailyActivity, disease_event_entity_1.DiseaseEvent, farm_entity_1.Farm]), weather_module_1.WeatherModule],
         controllers: [dashboard_controller_1.DashboardController],
         providers: [dashboard_service_1.DashboardService],
         exports: [dashboard_service_1.DashboardService],

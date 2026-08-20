@@ -26,8 +26,5 @@ We welcome contributions! Please follow these guidelines:
 - **Backend**: `npm run test` (Jest) inside `backend`.
 - **Frontend**: `npm run test` (Vite test runner) inside `frontend`.
 
-## CI/CD
-All PRs trigger the GitHub Actions workflow. Ensure the pipeline passes before merging.
-
 ## Secrets
-Never commit real secrets. Use the `.env.example` template and load real values from a secure store (AWS Secrets Manager, GitHub Secrets, etc.).
+Never commit real secrets. Use the `.env.example` template and keep real values in local `.env` files.

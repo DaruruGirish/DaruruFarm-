@@ -50,17 +50,39 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const disease_event_entity_1 = require("./disease-event.entity");
+const disease_prediction_entity_1 = require("./disease-prediction.entity");
 const farm_entity_1 = require("../farm/farm.entity");
+const user_entity_1 = require("../auth/user.entity");
+const premium_access_1 = require("../auth/premium-access");
+const weather_service_1 = require("../weather/weather.service");
+const pomegranate_bacterial_blight_risk_1 = require("./pomegranate-bacterial-blight-risk");
+const pomegranate_fruit_pipeline_service_1 = require("./pomegranate-fruit-pipeline.service");
+const gallery_service_1 = require("../gallery/gallery.service");
 const fs = __importStar(require("fs"));
 const path_1 = require("path");
 let DiseaseService = class DiseaseService {
     diseaseRepository;
+    predictionRepository;
     farmRepository;
-    constructor(diseaseRepository, farmRepository) {
+    userRepository;
+    weatherService;
+    fruitPipeline;
+    galleryService;
+    constructor(diseaseRepository, predictionRepository, farmRepository, userRepository, weatherService, fruitPipeline, galleryService) {
         this.diseaseRepository = diseaseRepository;
+        this.predictionRepository = predictionRepository;
         this.farmRepository = farmRepository;
+        this.userRepository = userRepository;
+        this.weatherService = weatherService;
+        this.fruitPipeline = fruitPipeline;
+        this.galleryService = galleryService;
+    }
+    async requirePremium(userId, featureLabel) {
+        const owner = await this.userRepository.findOne({ where: { id: userId } });
+        (0, premium_access_1.assertPremiumAccess)(owner, featureLabel);
     }
     async create(filename, diseaseName, temp, humidity, rainfall, farmId, user) {
+        await this.requirePremium(user.id, 'Detect Disease');
         const farm = await this.farmRepository.findOne({
             where: { id: farmId, user: { id: user.id } },
         });
@@ -79,6 +101,7 @@ let DiseaseService = class DiseaseService {
         return this.diseaseRepository.save(event);
     }
     async findAll(user) {
+        await this.requirePremium(user.id, 'Detect Disease');
         return this.diseaseRepository.find({
             where: { user: { id: user.id } },
             relations: { farm: true },
@@ -108,79 +131,85 @@ let DiseaseService = class DiseaseService {
         }
         await this.diseaseRepository.remove(event);
     }
-    async predictDiseaseRisk(data) {
-        const rainfall = Number(data.rainfall_mm) || 0;
-        const humidity = Number(data.humidity) || 0;
-        const temperature = Number(data.temperature) || 0;
-        const recent_disease = Number(data.recent_disease_count) || 0;
-        const recent_high_severity = Number(data.recent_high_severity_count) || 0;
-        const irrigation = Number(data.irrigation_liters) || 2000;
-        const sprays = Number(data.pesticide_spray_count) || 0;
-        const disease_logs = Number(data.disease_log_count) || 0;
-        const pest_inspections = Number(data.pest_inspection_count) || 0;
-        let score = 0;
-        if (rainfall > 60)
-            score += 25;
-        else if (rainfall > 30)
-            score += 15;
-        if (humidity > 80)
-            score += 30;
-        else if (humidity > 65)
-            score += 15;
-        if (temperature >= 24 && temperature <= 32)
-            score += 20;
-        if (recent_disease > 2)
-            score += 15;
-        else if (recent_disease > 0)
-            score += 8;
-        if (recent_high_severity > 0)
-            score += 15;
-        if (sprays === 0)
-            score += 10;
-        else if (sprays >= 2)
-            score -= 15;
-        if (disease_logs > 1)
-            score += 10;
-        const risk_percentage = Math.min(99.4, Math.max(5.2, Math.round((score * 0.85 + (rainfall * 0.15)) * 10) / 10));
-        let risk_level = 'LOW';
-        if (risk_percentage >= 70) {
-            risk_level = 'HIGH';
+    async findPredictions(user) {
+        await this.requirePremium(user.id, 'Detect Disease');
+        return this.predictionRepository.find({
+            where: { user: { id: user.id } },
+            relations: { farm: true },
+            order: { createdAt: 'DESC', id: 'DESC' },
+        });
+    }
+    async analyzeGalleryImage(galleryImageId, user) {
+        const image = await this.galleryService.findOne(galleryImageId, user);
+        return this.analyzeFruit(image.filename, image.farm?.id ?? null, user);
+    }
+    async analyzeFruit(filename, farmId, user) {
+        await this.requirePremium(user.id, 'Detect Disease');
+        let farm = null;
+        if (farmId != null) {
+            farm = await this.farmRepository.findOne({
+                where: { id: farmId, user: { id: user.id } },
+            });
+            if (!farm) {
+                throw new common_1.NotFoundException(`Farm with ID ${farmId} not found or unauthorized`);
+            }
         }
-        else if (risk_percentage >= 40) {
-            risk_level = 'MEDIUM';
-        }
-        const recommendations = {
-            HIGH: {
-                action: 'Immediate preventive fungicide application recommended (Mancozeb 75 WP @ 2.5g/L or Copper Oxychloride @ 3g/L).',
-                irrigation: 'Reduce drip duration and halt overhead sprinklers to lower canopy humidity.',
-                protocol: 'Perform immediate field scout across damp sectors and quarantine affected clusters.',
-            },
-            MEDIUM: {
-                action: 'Apply bio-fungicide or organic neem oil spray (3ml/L) as a prophylactic barrier.',
-                irrigation: 'Ensure good root zone aeration; schedule irrigation for early morning.',
-                protocol: 'Monitor humidity telemetry and inspect leaves daily for fungal spore spots.',
-            },
-            LOW: {
-                action: 'Microclimate is within safe agronomic bounds. Standard nutrition schedule advised.',
-                irrigation: 'Normal irrigation schedule based on soil moisture tension telemetry.',
-                protocol: 'Continue routine bi-weekly field scouting.',
-            },
-        };
+        const imagePath = (0, path_1.join)(process.cwd(), 'uploads', filename);
+        const heatmapDir = (0, path_1.join)(process.cwd(), 'uploads', 'heatmaps');
+        const result = await this.fruitPipeline.analyzeFruitImage(imagePath, heatmapDir);
+        const confidencePct = Math.round(result.confidence * 10000) / 100;
+        const topPredictions = Object.entries(result.classProbabilities || {})
+            .map(([disease, conf]) => ({
+            disease,
+            confidence: Math.round(Number(conf) * 10000) / 100,
+        }))
+            .sort((a, b) => b.confidence - a.confidence);
+        const prediction = this.predictionRepository.create({
+            imageUrl: filename,
+            predictedDisease: result.disease,
+            confidence: confidencePct,
+            plantPart: 'fruit',
+            uncertain: confidencePct < 70,
+            topPredictions,
+            severity: result.severity,
+            heatmapUrl: result.heatmap ? `heatmaps/${result.heatmap}` : null,
+            recommendations: result.recommendations,
+            farm,
+            user,
+        });
+        const saved = await this.predictionRepository.save(prediction);
         return {
-            risk_percentage,
-            risk_level,
-            recommendation: recommendations[risk_level],
-            features: {
-                rainfall_mm: rainfall,
-                humidity,
-                temperature,
-                recent_disease_count: recent_disease,
-                recent_high_severity_count: recent_high_severity,
-                irrigation_liters: irrigation,
-                pesticide_spray_count: sprays,
-                disease_log_count: disease_logs,
-                pest_inspection_count: pest_inspections,
-            },
+            id: saved.id,
+            disease: result.disease,
+            confidence: result.confidence,
+            severity: result.severity,
+            heatmap: saved.heatmapUrl,
+            recommendations: result.recommendations,
+            imageUrl: filename,
+            plantPart: 'fruit',
+            uncertain: saved.uncertain,
+            topPredictions,
+            farm: farm ? { id: farm.id, name: farm.name } : null,
+            createdAt: saved.createdAt,
+        };
+    }
+    async predictPomegranateBacterialBlight(farmId, user) {
+        await this.requirePremium(user.id, 'Analysis');
+        const farm = await this.farmRepository.findOne({
+            where: { id: farmId, user: { id: user.id } },
+        });
+        if (!farm) {
+            throw new common_1.NotFoundException(`Farm with ID ${farmId} not found or unauthorized`);
+        }
+        if (farm.latitude == null || farm.longitude == null) {
+            throw new common_1.BadRequestException('Save the farm location before calculating bacterial blight risk.');
+        }
+        const series = await this.weatherService.getBlightWeatherSeries(Number(farm.latitude), Number(farm.longitude));
+        const result = (0, pomegranate_bacterial_blight_risk_1.calculatePomegranateBacterialBlightRisk)(series);
+        return {
+            ...result,
+            farm: { id: farm.id, name: farm.name },
+            weatherFetchedAt: series.fetchedAt,
         };
     }
 };
@@ -188,8 +217,15 @@ exports.DiseaseService = DiseaseService;
 exports.DiseaseService = DiseaseService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(disease_event_entity_1.DiseaseEvent)),
-    __param(1, (0, typeorm_1.InjectRepository)(farm_entity_1.Farm)),
+    __param(1, (0, typeorm_1.InjectRepository)(disease_prediction_entity_1.DiseasePrediction)),
+    __param(2, (0, typeorm_1.InjectRepository)(farm_entity_1.Farm)),
+    __param(3, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
-        typeorm_2.Repository])
+        typeorm_2.Repository,
+        typeorm_2.Repository,
+        typeorm_2.Repository,
+        weather_service_1.WeatherService,
+        pomegranate_fruit_pipeline_service_1.PomegranateFruitPipelineService,
+        gallery_service_1.GalleryService])
 ], DiseaseService);
 //# sourceMappingURL=disease.service.js.map

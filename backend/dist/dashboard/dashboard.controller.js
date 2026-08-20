@@ -22,8 +22,9 @@ let DashboardController = class DashboardController {
     constructor(dashboardService) {
         this.dashboardService = dashboardService;
     }
-    getDashboardData(req) {
-        return this.dashboardService.getDashboardData(req.user.id);
+    getDashboardData(req, farmId) {
+        const parsed = farmId ? Number(farmId) : undefined;
+        return this.dashboardService.getDashboardData(req.user.id, Number.isFinite(parsed) ? parsed : undefined, req.user.role);
     }
 };
 exports.DashboardController = DashboardController;
@@ -33,8 +34,9 @@ __decorate([
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Dashboard dataset retrieved successfully.' }),
     (0, swagger_1.ApiResponse)({ status: 401, description: 'Unauthorized.' }),
     __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Query)('farmId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], DashboardController.prototype, "getDashboardData", null);
 exports.DashboardController = DashboardController = __decorate([

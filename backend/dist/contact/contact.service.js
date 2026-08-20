@@ -28,7 +28,7 @@ let ContactService = class ContactService {
             email,
             subject,
             message,
-            user,
+            user: user ?? null,
         });
         return this.contactRepository.save(inquiry);
     }

@@ -19,19 +19,67 @@ const typeorm_2 = require("typeorm");
 const expense_entity_1 = require("../expense/expense.entity");
 const daily_activity_entity_1 = require("../daily-activity/daily-activity.entity");
 const disease_event_entity_1 = require("../disease/disease-event.entity");
+const farm_entity_1 = require("../farm/farm.entity");
+const weather_service_1 = require("../weather/weather.service");
 let DashboardService = class DashboardService {
     expenseRepository;
     dailyActivityRepository;
     diseaseRepository;
-    constructor(expenseRepository, dailyActivityRepository, diseaseRepository) {
+    farmRepository;
+    weatherService;
+    constructor(expenseRepository, dailyActivityRepository, diseaseRepository, farmRepository, weatherService) {
         this.expenseRepository = expenseRepository;
         this.dailyActivityRepository = dailyActivityRepository;
         this.diseaseRepository = diseaseRepository;
+        this.farmRepository = farmRepository;
+        this.weatherService = weatherService;
     }
-    async getDashboardData(userId) {
-        const expenses = await this.expenseRepository.find({
-            where: { user: { id: userId } },
-        });
+    async getDashboardData(userId, farmId, role) {
+        const hideExpenses = role === 'viewer';
+        let monthExpenses = 0;
+        let previousMonthExpenses = 0;
+        let change = 0;
+        let expenseTrend = [];
+        if (!hideExpenses) {
+            const expenses = await this.expenseRepository.find({
+                where: { user: { id: userId } },
+            });
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonthIdx = now.getMonth();
+            monthExpenses = expenses
+                .filter((e) => {
+                const d = new Date(e.date);
+                return d.getFullYear() === currentYear && d.getMonth() === currentMonthIdx;
+            })
+                .reduce((sum, e) => sum + Number(e.amount), 0);
+            const previousMonthIdx = currentMonthIdx === 0 ? 11 : currentMonthIdx - 1;
+            const previousMonthYear = currentMonthIdx === 0 ? currentYear - 1 : currentYear;
+            previousMonthExpenses = expenses
+                .filter((e) => {
+                const d = new Date(e.date);
+                return d.getFullYear() === previousMonthYear && d.getMonth() === previousMonthIdx;
+            })
+                .reduce((sum, e) => sum + Number(e.amount), 0);
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const monthlySum = {};
+            monthNames.forEach((m) => {
+                monthlySum[m] = 0;
+            });
+            expenses.forEach((e) => {
+                const d = new Date(e.date);
+                if (d.getFullYear() === currentYear) {
+                    const m = monthNames[d.getMonth()];
+                    monthlySum[m] += Number(e.amount);
+                }
+            });
+            expenseTrend = monthNames.slice(0, currentMonthIdx + 1).map((m) => ({
+                month: m,
+                value: Math.round(monthlySum[m] || 0),
+            }));
+            change =
+                previousMonthExpenses > 0 ? ((monthExpenses - previousMonthExpenses) / previousMonthExpenses) * 100 : 0;
+        }
         const activities = await this.dailyActivityRepository.find({
             where: { user: { id: userId } },
             relations: { farm: true },
@@ -43,39 +91,7 @@ let DashboardService = class DashboardService {
             relations: { farm: true },
             order: { detectedAt: 'DESC' },
         });
-        const currentYear = 2026;
-        const currentMonthIdx = 6;
-        const julyExpenses = expenses
-            .filter(e => {
-            const d = new Date(e.date);
-            return d.getFullYear() === currentYear && d.getMonth() === currentMonthIdx;
-        })
-            .reduce((sum, e) => sum + Number(e.amount), 0);
-        const juneExpensesInDb = expenses
-            .filter(e => {
-            const d = new Date(e.date);
-            return d.getFullYear() === currentYear && d.getMonth() === 5;
-        })
-            .reduce((sum, e) => sum + Number(e.amount), 0);
-        const monthlySum = { Jan: 0, Feb: 0, Mar: 0, Apr: 0, May: 0, Jun: 0, Jul: 0 };
-        expenses.forEach(e => {
-            const d = new Date(e.date);
-            if (d.getFullYear() === currentYear) {
-                const m = d.toLocaleString('default', { month: 'short' });
-                if (monthlySum[m] !== undefined) {
-                    monthlySum[m] += Number(e.amount);
-                }
-            }
-        });
-        const baseExpenses = [3100, 2900, 4200, 3800, 4900, 5300, 0];
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
-        const expenseTrend = months.map((m, idx) => {
-            const value = m === 'Jul' ? monthlySum[m] : baseExpenses[idx] + monthlySum[m];
-            return { month: m, value: Math.round(value) };
-        });
-        const juneTotal = baseExpenses[5] + juneExpensesInDb;
-        const change = juneTotal > 0 ? ((julyExpenses - juneTotal) / juneTotal) * 100 : 0;
-        const parsedActivities = activities.map(act => {
+        const parsedActivities = activities.map((act) => {
             let type = 'weather';
             const typeLower = act.activityType.toLowerCase();
             if (typeLower.includes('irrigation') || typeLower.includes('water')) {
@@ -98,31 +114,7 @@ let DashboardService = class DashboardService {
                 time: new Date(act.date).toLocaleDateString(),
             };
         });
-        const baselineActivities = [
-            {
-                id: 'mock-1',
-                type: 'weather',
-                description: 'Heavy rainfall warning issued for tomorrow',
-                user: 'System',
-                time: '10m ago',
-            },
-            {
-                id: 'mock-2',
-                type: 'irrigation',
-                description: 'Irrigation cycle completed for West Fields',
-                user: 'Auto-pilot',
-                time: '1h ago',
-            },
-            {
-                id: 'mock-3',
-                type: 'treatment',
-                description: 'Pest control spraying completed in sector B',
-                user: 'D. Miller',
-                time: '3h ago',
-            },
-        ];
-        const recentActivities = [...parsedActivities, ...baselineActivities].slice(0, 5);
-        const activeAlerts = diseaseEvents.map(event => {
+        const activeAlerts = diseaseEvents.map((event) => {
             const severity = event.temp > 30 || event.humidity > 80 ? 'high' : 'medium';
             return {
                 id: event.id,
@@ -137,79 +129,54 @@ let DashboardService = class DashboardService {
                 rainfall: Number(event.rainfall),
             };
         });
-        const fallbackAlerts = [
-            {
-                id: 'mock-d1',
-                severity: 'high',
-                crop: 'Apples',
-                disease: 'Fire Blight',
-                location: 'East Orchard',
-                date: '2026-07-26',
-                temp: 31,
-                humidity: 82,
-                rainfall: 12,
-            },
-            {
-                id: 'mock-d2',
-                severity: 'medium',
-                crop: 'Peaches',
-                disease: 'Leaf Curl',
-                location: 'North Sector',
-                date: '2026-07-27',
-                temp: 24,
-                humidity: 68,
-                rainfall: 4,
-            },
-        ];
-        const alerts = activeAlerts.length > 0 ? activeAlerts : fallbackAlerts;
+        const farms = await this.farmRepository.find({
+            where: { user: { id: userId } },
+            order: { id: 'ASC' },
+        });
+        const selectedFarm = farmId != null
+            ? farms.find((farm) => farm.id === farmId) || farms[0]
+            : farms.find((farm) => farm.latitude != null && farm.longitude != null) || farms[0];
+        let weather = {
+            temp: null,
+            condition: 'Set farm location',
+            humidity: null,
+            rainfall: null,
+            wind: null,
+            location: selectedFarm?.locationLabel || selectedFarm?.address || selectedFarm?.name || 'Set farm location',
+            latitude: selectedFarm?.latitude != null ? Number(selectedFarm.latitude) : null,
+            longitude: selectedFarm?.longitude != null ? Number(selectedFarm.longitude) : null,
+            forecast: [],
+        };
+        let rainfallHumidity = [];
+        let windTemperature = [];
+        try {
+            const live = await this.weatherService.getDashboardWeather(selectedFarm || null);
+            if (live) {
+                weather = live;
+                rainfallHumidity = live.rainfallHumidity || [];
+                windTemperature = live.windTemperature || [];
+            }
+        }
+        catch {
+        }
         return {
-            weather: {
-                temp: 26,
-                condition: 'Light Rain',
-                humidity: 78,
-                wind: 15,
-                location: 'Valley Region',
-            },
+            weather,
             metrics: {
-                expenses: {
-                    value: Math.round(julyExpenses),
-                    previous: Math.round(juneTotal),
-                    change: parseFloat(change.toFixed(1)),
-                },
-                harvest: {
-                    value: 12.8,
-                    previous: 11.5,
-                    change: 11.3,
-                },
-                employees: {
-                    value: 16,
-                    previous: 15,
-                    change: 6.6,
-                },
-                alertsCount: diseaseEvents.length > 0 ? diseaseEvents.length : fallbackAlerts.length,
+                expenses: hideExpenses
+                    ? null
+                    : {
+                        value: Math.round(monthExpenses),
+                        previous: Math.round(previousMonthExpenses),
+                        change: parseFloat(change.toFixed(1)),
+                    },
+                alertsCount: diseaseEvents.length,
             },
-            alerts,
-            recentActivities,
+            alerts: activeAlerts,
+            recentActivities: parsedActivities.slice(0, 5),
             charts: {
-                expenseTrend,
-                harvestTrend: [
-                    { month: 'Jan', value: 2.1 },
-                    { month: 'Feb', value: 1.8 },
-                    { month: 'Mar', value: 3.5 },
-                    { month: 'Apr', value: 5.6 },
-                    { month: 'May', value: 8.2 },
-                    { month: 'Jun', value: 10.4 },
-                    { month: 'Jul', value: 12.8 },
-                ],
-                waterUsageRainfall: [
-                    { month: 'Jan', water: 320, rain: 95 },
-                    { month: 'Feb', water: 340, rain: 75 },
-                    { month: 'Mar', water: 280, rain: 140 },
-                    { month: 'Apr', water: 220, rain: 195 },
-                    { month: 'May', water: 190, rain: 210 },
-                    { month: 'Jun', water: 150, rain: 260 },
-                    { month: 'Jul', water: 180, rain: 185 },
-                ],
+                expenseTrend: hideExpenses ? [] : expenseTrend,
+                rainfallHumidity,
+                windTemperature,
             },
         };
     }
@@ -220,8 +187,11 @@ exports.DashboardService = DashboardService = __decorate([
     __param(0, (0, typeorm_1.InjectRepository)(expense_entity_1.Expense)),
     __param(1, (0, typeorm_1.InjectRepository)(daily_activity_entity_1.DailyActivity)),
     __param(2, (0, typeorm_1.InjectRepository)(disease_event_entity_1.DiseaseEvent)),
+    __param(3, (0, typeorm_1.InjectRepository)(farm_entity_1.Farm)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
-        typeorm_2.Repository])
+        typeorm_2.Repository,
+        typeorm_2.Repository,
+        weather_service_1.WeatherService])
 ], DashboardService);
 //# sourceMappingURL=dashboard.service.js.map

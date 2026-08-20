@@ -8,6 +8,7 @@ export declare class DailyActivity {
     pesticideName: string;
     pesticideQuantity: string;
     pesticideTime: string;
+    waterHours: number | null;
     farm: Farm;
     user: User;
 }

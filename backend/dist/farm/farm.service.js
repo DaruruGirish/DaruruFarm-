@@ -17,12 +17,24 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const farm_entity_1 = require("./farm.entity");
+const user_entity_1 = require("../auth/user.entity");
+const plan_1 = require("../auth/plan");
 let FarmService = class FarmService {
     farmRepository;
-    constructor(farmRepository) {
+    userRepository;
+    constructor(farmRepository, userRepository) {
         this.farmRepository = farmRepository;
+        this.userRepository = userRepository;
     }
     async create(createFarmDto, user) {
+        const owner = await this.userRepository.findOne({ where: { id: user.id } });
+        const count = await this.farmRepository.count({ where: { user: { id: user.id } } });
+        if (count >= 1 && !(0, plan_1.userHasPremium)(owner)) {
+            throw new common_1.ForbiddenException('Free plan includes 1 holding. Upgrade to Premium (₹5,000/year) for unlimited holdings.');
+        }
+        if (createFarmDto.latitude == null || createFarmDto.longitude == null) {
+            throw new common_1.BadRequestException('Farm location is required. Search a place or use GPS so we can store latitude and longitude.');
+        }
         const farm = this.farmRepository.create({
             ...createFarmDto,
             user,
@@ -58,6 +70,8 @@ exports.FarmService = FarmService;
 exports.FarmService = FarmService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(farm_entity_1.Farm)),
-    __metadata("design:paramtypes", [typeorm_2.Repository])
+    __param(1, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
+    __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository])
 ], FarmService);
 //# sourceMappingURL=farm.service.js.map

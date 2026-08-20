@@ -14,6 +14,9 @@ const swagger_1 = require("@nestjs/swagger");
 class UpdateFarmDto {
     name;
     address;
+    locationLabel;
+    latitude;
+    longitude;
     totalAcres;
     numberOfTrees;
     cropVariety;
@@ -28,6 +31,18 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: '123 Valley Road, California' }),
     __metadata("design:type", String)
 ], UpdateFarmDto.prototype, "address", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'Mysuru, Karnataka' }),
+    __metadata("design:type", String)
+], UpdateFarmDto.prototype, "locationLabel", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 12.2958 }),
+    __metadata("design:type", Number)
+], UpdateFarmDto.prototype, "latitude", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 76.6394 }),
+    __metadata("design:type", Number)
+], UpdateFarmDto.prototype, "longitude", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ example: 45.5 }),
     __metadata("design:type", Number)

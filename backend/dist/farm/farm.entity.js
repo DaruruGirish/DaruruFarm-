@@ -16,6 +16,9 @@ let Farm = class Farm {
     id;
     name;
     address;
+    locationLabel;
+    latitude;
+    longitude;
     totalAcres;
     numberOfTrees;
     cropVariety;
@@ -35,6 +38,18 @@ __decorate([
     (0, typeorm_1.Column)(),
     __metadata("design:type", String)
 ], Farm.prototype, "address", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 255, nullable: true }),
+    __metadata("design:type", Object)
+], Farm.prototype, "locationLabel", void 0);
+__decorate([
+    (0, typeorm_1.Column)('decimal', { precision: 10, scale: 7, nullable: true }),
+    __metadata("design:type", Object)
+], Farm.prototype, "latitude", void 0);
+__decorate([
+    (0, typeorm_1.Column)('decimal', { precision: 11, scale: 7, nullable: true }),
+    __metadata("design:type", Object)
+], Farm.prototype, "longitude", void 0);
 __decorate([
     (0, typeorm_1.Column)('decimal', { precision: 10, scale: 2 }),
     __metadata("design:type", Number)

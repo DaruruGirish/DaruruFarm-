@@ -2,35 +2,23 @@ import { Repository } from 'typeorm';
 import { Expense } from '../expense/expense.entity';
 import { DailyActivity } from '../daily-activity/daily-activity.entity';
 import { DiseaseEvent } from '../disease/disease-event.entity';
+import { Farm } from '../farm/farm.entity';
+import { WeatherService } from '../weather/weather.service';
 export declare class DashboardService {
     private expenseRepository;
     private dailyActivityRepository;
     private diseaseRepository;
-    constructor(expenseRepository: Repository<Expense>, dailyActivityRepository: Repository<DailyActivity>, diseaseRepository: Repository<DiseaseEvent>);
-    getDashboardData(userId: number): Promise<{
-        weather: {
-            temp: number;
-            condition: string;
-            humidity: number;
-            wind: number;
-            location: string;
-        };
+    private farmRepository;
+    private weatherService;
+    constructor(expenseRepository: Repository<Expense>, dailyActivityRepository: Repository<DailyActivity>, diseaseRepository: Repository<DiseaseEvent>, farmRepository: Repository<Farm>, weatherService: WeatherService);
+    getDashboardData(userId: number, farmId?: number, role?: string): Promise<{
+        weather: any;
         metrics: {
             expenses: {
                 value: number;
                 previous: number;
                 change: number;
-            };
-            harvest: {
-                value: number;
-                previous: number;
-                change: number;
-            };
-            employees: {
-                value: number;
-                previous: number;
-                change: number;
-            };
+            } | null;
             alertsCount: number;
         };
         alerts: {
@@ -44,44 +32,21 @@ export declare class DashboardService {
             temp: number;
             humidity: number;
             rainfall: number;
-        }[] | {
-            id: string;
-            severity: string;
-            crop: string;
-            disease: string;
-            location: string;
-            date: string;
-            temp: number;
-            humidity: number;
-            rainfall: number;
         }[];
-        recentActivities: ({
+        recentActivities: {
             id: number;
             type: string;
             description: string;
             user: string;
             time: string;
-        } | {
-            id: string;
-            type: string;
-            description: string;
-            user: string;
-            time: string;
-        })[];
+        }[];
         charts: {
             expenseTrend: {
                 month: string;
                 value: number;
             }[];
-            harvestTrend: {
-                month: string;
-                value: number;
-            }[];
-            waterUsageRainfall: {
-                month: string;
-                water: number;
-                rain: number;
-            }[];
+            rainfallHumidity: any[];
+            windTemperature: any[];
         };
     }>;
 }

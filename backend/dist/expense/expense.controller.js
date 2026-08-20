@@ -24,23 +24,33 @@ let ExpenseController = class ExpenseController {
     constructor(expenseService) {
         this.expenseService = expenseService;
     }
+    assertExpenseAccess(req) {
+        if (req.user?.role === 'viewer') {
+            throw new common_1.ForbiddenException('Expense records are not available for inspector logins.');
+        }
+    }
     create(createExpenseDto, req) {
+        this.assertExpenseAccess(req);
         const user = { id: req.user.id };
         return this.expenseService.create(createExpenseDto, user);
     }
     findAll(req) {
+        this.assertExpenseAccess(req);
         const user = { id: req.user.id };
         return this.expenseService.findAll(user);
     }
     findOne(id, req) {
+        this.assertExpenseAccess(req);
         const user = { id: req.user.id };
         return this.expenseService.findOne(+id, user);
     }
     update(id, updateExpenseDto, req) {
+        this.assertExpenseAccess(req);
         const user = { id: req.user.id };
         return this.expenseService.update(+id, updateExpenseDto, user);
     }
     remove(id, req) {
+        this.assertExpenseAccess(req);
         const user = { id: req.user.id };
         return this.expenseService.remove(+id, user);
     }

@@ -6,4 +6,5 @@ export declare class UpdateActivityDto {
     pesticideName?: string;
     pesticideQuantity?: string;
     pesticideTime?: string;
+    waterHours?: number;
 }

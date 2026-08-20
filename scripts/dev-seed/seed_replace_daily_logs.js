@@ -1,14 +1,11 @@
 const mysql = require('mysql2/promise');
 const julyDailyLogs = require('./july_daily_logs');
+const { assertDevSeedAllowed, dbConfig } = require('./env');
+
+assertDevSeedAllowed();
 
 async function run() {
-  const conn = await mysql.createConnection({
-    host: '127.0.0.1',
-    port: 3306,
-    user: 'root',
-    password: 'Bunny2026$',
-    database: 'daruru_farm',
-  });
+  const conn = await mysql.createConnection(dbConfig());
 
   await conn.query('DELETE FROM daily_activities');
   await conn.query('ALTER TABLE daily_activities AUTO_INCREMENT = 1');

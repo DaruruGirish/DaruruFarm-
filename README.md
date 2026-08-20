@@ -1,29 +1,16 @@
 # Daruru Farm
 
-**Daruru Farm** is a full‑stack application for managing farm operations. It consists of:
+**Daruru Farm** is a full-stack app for farm operations:
 
-- **Backend** – NestJS API (Node.js, TypeScript) with MySQL.
-- **Frontend** – Vite + React UI.
-- **Infrastructure** – Terraform (AWS) and Docker Compose for local development.
-
-## Table of Contents
-- [Prerequisites](#prerequisites)
-- [Local Development](#local-development)
-- [Environment Configuration](#environment-configuration)
-- [Running the Application](#running-the-application)
-- [Testing](#testing)
-- [Deployment (Terraform)](#deployment-terraform)
-- [CI/CD](#cicd)
-- [Contributing](#contributing)
+- **Backend** – NestJS API (Node.js, TypeScript) with MySQL
+- **Frontend** – Vite + React UI
 
 ## Prerequisites
-- **Docker Desktop** (or Docker Engine) – required for `docker compose`.
-- **Node.js 22** (recommended) – for backend/frontend tooling.
-- **Terraform 1.x** – for provisioning AWS resources.
-- **AWS CLI** with credentials that have permission to manage the resources (ECR, RDS, EC2, etc.).
 
-## Environment Configuration
-Copy the example files and fill in real values:
+- **Node.js 22** (recommended)
+- **MySQL 8** running locally (database `daruru_farm`)
+
+## Environment
 
 ```bash
 cp .env.example .env
@@ -31,50 +18,47 @@ cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 ```
 
-The `.env` file contains non‑secret placeholders. Secrets (DB passwords, JWT secret) must be stored securely (e.g., AWS Secrets Manager) and referenced via environment variables.
+Fill in database, JWT, and Razorpay values. Do not commit `.env` files.
 
-## Running the Application Locally
+## Run locally
+
 ```bash
-# From the repository root
-docker compose up --build
+cd backend
+npm install
+npm run start
 ```
 
-- MySQL will be available at `localhost:3306`.
-- Backend API runs on `http://localhost:3000`.
-- Frontend UI is served on `http://localhost`.
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-Health check endpoint (backend):
+- API: `http://localhost:3000`
+- UI: `http://localhost:5173` (proxies `/api` to the backend)
+
+Health check:
+
 ```bash
 curl http://localhost:3000/health
 ```
 
-## Testing
-```bash
-# Backend tests
-cd backend && npm run test
+Optional local demo data (never used in production):
 
-# Frontend tests
+```bash
+cd backend
+npm run seed:dev
+```
+
+See `scripts/dev-seed/README.md`. A new farmer in production starts with empty holdings and logs what they actually do.
+
+## Testing
+
+```bash
+cd backend && npm run test
 cd frontend && npm run test
 ```
 
-## Deployment (Terraform)
-```bash
-cd DaruruFarm-Infrastructure
-terraform init
-terraform fmt -check
-terraform validate
-terraform plan   # review changes
-terraform apply   # provision resources
-```
-
-After provisioning, push Docker images to ECR and run the `deploy` job in GitHub Actions (or SSH into your EC2 instance and run `docker compose pull && docker compose up -d`).
-
-## CI/CD
-The repository includes a GitHub Actions workflow (`.github/workflows/ci-cd.yml`) that:
-
-1. Lints and builds both backend and frontend.
-2. Builds and pushes Docker images to Amazon ECR.
-3. Deploys the stack to an EC2 instance via SSH.
-
 ## Contributing
-Please see the [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on coding standards, branch naming, and pull‑request workflow.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).

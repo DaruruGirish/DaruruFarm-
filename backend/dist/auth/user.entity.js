@@ -16,6 +16,11 @@ let User = class User {
     name;
     email;
     password;
+    googleId;
+    authProvider;
+    plan;
+    premiumUntil;
+    trialUsed;
 };
 exports.User = User;
 __decorate([
@@ -31,9 +36,29 @@ __decorate([
     __metadata("design:type", String)
 ], User.prototype, "email", void 0);
 __decorate([
-    (0, typeorm_1.Column)(),
-    __metadata("design:type", String)
+    (0, typeorm_1.Column)({ type: 'varchar', nullable: true }),
+    __metadata("design:type", Object)
 ], User.prototype, "password", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 64, nullable: true, unique: true }),
+    __metadata("design:type", Object)
+], User.prototype, "googleId", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 20, default: 'local' }),
+    __metadata("design:type", String)
+], User.prototype, "authProvider", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 20, default: 'free' }),
+    __metadata("design:type", String)
+], User.prototype, "plan", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'datetime', nullable: true }),
+    __metadata("design:type", Object)
+], User.prototype, "premiumUntil", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], User.prototype, "trialUsed", void 0);
 exports.User = User = __decorate([
     (0, typeorm_1.Entity)('users')
 ], User);
