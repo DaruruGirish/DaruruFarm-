@@ -6,9 +6,10 @@ import { Expense } from '../expense/expense.entity';
 import { DailyActivity } from '../daily-activity/daily-activity.entity';
 import { DiseaseEvent } from '../disease/disease-event.entity';
 import { Farm } from '../farm/farm.entity';
+import { WeatherModule } from '../weather/weather.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Expense, DailyActivity, DiseaseEvent, Farm])],
+  imports: [TypeOrmModule.forFeature([Expense, DailyActivity, DiseaseEvent, Farm]), WeatherModule],
   controllers: [DashboardController],
   providers: [DashboardService],
   exports: [DashboardService],

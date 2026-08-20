@@ -25,6 +25,21 @@ export class DiseasePrediction {
   @Column('simple-json', { nullable: true })
   topPredictions: { disease: string; confidence: number }[];
 
+  @Column({ type: 'varchar', length: 16, nullable: true })
+  severity: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  heatmapUrl: string | null;
+
+  @Column('simple-json', { nullable: true })
+  recommendations: {
+    explanation?: string;
+    immediateActions?: string[];
+    treatmentOptions?: string[];
+    bestPractices?: string[];
+    monitoring?: string[];
+  } | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 

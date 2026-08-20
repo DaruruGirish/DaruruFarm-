@@ -1,70 +1,95 @@
-# version: "3.9"  # deprecated, ignored by Compose V2
-
 services:
-
-  daruru-db:
-    image: mysql:8
-    container_name: daruru-db
+  db:
+    image: mysql:8.4
     restart: unless-stopped
-    env_file: ./.env
-
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-daruru_root}
+      MYSQL_DATABASE: ${DB_DATABASE:-daruru_farm}
+      # App user must not be root (MySQL image restriction)
+      MYSQL_USER: ${MYSQL_APP_USER:-daruru}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-daruru_root}
     ports:
-      - "3307:3306"
-
+      - "${DB_PUBLISH_PORT:-3306}:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - daruru_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_PASSWORD:-daruru_root}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
 
-    networks:
-      - darurufarms-network
-
-  darurufarms-backend:
-    build: ./backend
-    image: darurufarms-backend:dev
-    container_name: darurufarms-backend
+  ml:
+    build:
+      context: ./ml/pomegranate
+      dockerfile: Dockerfile
     restart: unless-stopped
-    env_file: ./.env
-
-    depends_on:
-      - daruru-db
-
     environment:
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_DATABASE: ${DB_DATABASE}
-      JWT_SECRET: ${JWT_SECRET}
-      PORT: ${PORT}
-      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID}
-      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET}
+      POMEGRANATE_INFER_HOST: 0.0.0.0
+      POMEGRANATE_INFER_PORT: "8001"
+      TF_CPP_MIN_LOG_LEVEL: "3"
+    volumes:
+      # Same upload tree as backend so JSON imagePath / heatmapDir work across containers
+      - daruru_uploads:/app/uploads
+    expose:
+      - "8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
 
-    ports:
-      - "3001:3000"
-
-    networks:
-      - darurufarms-network
-
-  darurufarms-frontend:
-    build: ./frontend
-    image: darurufarms-frontend:dev
-    container_name: darurufarms-frontend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
-      - darurufarms-backend
-    env_file: ./.env
-
+      db:
+        condition: service_healthy
+      ml:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_USERNAME: ${MYSQL_APP_USER:-daruru}
+      DB_PASSWORD: ${DB_PASSWORD:-daruru_root}
+      DB_DATABASE: ${DB_DATABASE:-daruru_farm}
+      JWT_SECRET: ${JWT_SECRET:-change_me_docker_jwt_secret}
+      TYPEORM_SYNCHRONIZE: ${TYPEORM_SYNCHRONIZE:-true}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      POMEGRANATE_INFER_URL: http://ml:8001
+      POMEGRANATE_ML_ROOT: /app/ml/pomegranate
+      POMEGRANATE_PYTHON: python3
+    volumes:
+      - daruru_uploads:/app/uploads
     ports:
-      - "80:80"
+      - "${BACKEND_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
 
-    networks:
-      - darurufarms-network
-
-networks:
-  darurufarms-network:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ""
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
 
 volumes:
-  mysql_data:
+  daruru_mysql:
+  daruru_uploads:

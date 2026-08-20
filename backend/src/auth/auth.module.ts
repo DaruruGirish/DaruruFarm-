@@ -4,6 +4,7 @@ import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { User } from './user.entity';
+import { FarmViewer } from './farm-viewer.entity';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
@@ -11,7 +12,7 @@ import { JwtStrategy } from './jwt.strategy';
 @Module({
   imports: [
     // Register the User entity for TypeORM in this module context
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, FarmViewer]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     // Configure JwtModule asynchronously using environment variables
     JwtModule.registerAsync({

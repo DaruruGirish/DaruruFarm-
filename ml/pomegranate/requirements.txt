@@ -1,0 +1,10 @@
+tensorflow>=2.15
+opencv-python
+numpy
+scikit-learn
+pillow
+qdrant-client
+sentence-transformers
+openai
+
+flask

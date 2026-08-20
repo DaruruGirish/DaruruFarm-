@@ -1,4 +1,5 @@
-export const PREMIUM_PRICE_INR = 3000;
+export const PREMIUM_PRICE_INR = 5000;
+export const FREE_TRIAL_DAYS = 2;
 
 export const COMPLIMENTARY_PREMIUM_EMAILS = ['darurubunny@gmail.com'];
 
@@ -9,19 +10,19 @@ export const FREE_FEATURES = [
   'To-do list',
   'Basic analysis (acres, plants, July spend)',
   'Help & support tickets',
+  `${FREE_TRIAL_DAYS}-day Premium trial on signup`,
 ] as const;
-
 export const PREMIUM_FEATURES = [
   { name: 'Unlimited farm holdings', detail: 'Register every block and orchard, not just one.' },
-  { name: 'Photo disease analysis', detail: 'Check leaf and fruit photos with the trained crop model.' },
+  { name: 'Photo disease analysis', detail: 'A new crop photo model will be connected here. Outbreaks can still be logged by hand.' },
   { name: 'High-confidence detections', detail: 'Results above 85% appear as active diseases on Analysis.' },
-  { name: 'Weather outbreak risk', detail: 'Score risk from rainfall, humidity, and temperature.' },
   { name: 'Location telemetry', detail: 'Save farm coordinates for weather and future APIs.' },
-  { name: 'Pesticide spray logs', detail: 'Record product, quantity, time, and holding for each spray.' },
+  { name: 'Pesticide spray logs', detail: 'Record pesticide name, quantity, and spray time. Date is saved automatically.' },
   { name: 'Soil and pH lab PDFs', detail: 'Upload reports on Analysis and open them in the app.' },
-  { name: 'Gallery with photo check', detail: 'Store field photos and run analysis from the gallery.' },
+  { name: 'Farm gallery', detail: 'Store field photos. Photo analysis will use the new model when it is connected.' },
   { name: 'AI assistant', detail: 'Ask questions against your logs, expenses, and weather.' },
   { name: 'Multi-holding filters', detail: 'Filter logs, diseases, and photos by farm.' },
+  { name: 'Inspector logins', detail: 'Share read-only usernames with a doctor or agronomist so they can review records without editing.' },
   { name: 'Priority support', detail: 'Faster replies on Help & Support tickets.' },
 ] as const;
 

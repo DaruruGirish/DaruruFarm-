@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { ViewerReadOnlyInterceptor } from './auth/viewer-readonly.interceptor';
 import { AuthModule } from './auth/auth.module';
 import { FarmModule } from './farm/farm.module';
 import { DashboardModule } from './dashboard/dashboard.module';
@@ -14,13 +17,16 @@ import { ContactModule } from './contact/contact.module';
 import { LabReportModule } from './lab-report/lab-report.module';
 import { TodoModule } from './todo/todo.module';
 import { BillingModule } from './billing/billing.module';
+import { WeatherModule } from './weather/weather.module';
 
 @Module({
   imports: [
     // Load environmental variables globally
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: ['.env', '../.env'],
     }),
+    ScheduleModule.forRoot(),
     // Configure TypeORM asynchronously to use environment variables
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -33,10 +39,12 @@ import { BillingModule } from './billing/billing.module';
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_DATABASE'),
         autoLoadEntities: true,
-        // synchronize: true automatically syncs database tables with TypeORM entities.
-        // It's helpful in development but should be false/disabled in production.
-        synchronize: true,
-        logging: true,
+        // Default: sync in non-production. Override with TYPEORM_SYNCHRONIZE=true|false for Docker/first boot.
+        synchronize:
+          process.env.TYPEORM_SYNCHRONIZE != null
+            ? process.env.TYPEORM_SYNCHRONIZE === 'true'
+            : process.env.NODE_ENV !== 'production',
+        logging: process.env.TYPEORM_LOGGING === 'true',
       }),
     }),
     AuthModule,
@@ -50,8 +58,12 @@ import { BillingModule } from './billing/billing.module';
     LabReportModule,
     TodoModule,
     BillingModule,
+    WeatherModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_INTERCEPTOR, useClass: ViewerReadOnlyInterceptor },
+  ],
 })
 export class AppModule {}

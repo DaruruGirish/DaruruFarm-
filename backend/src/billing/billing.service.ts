@@ -53,6 +53,33 @@ export class BillingService {
       throw new BadRequestException('This account already includes Premium.');
     }
 
+    return this.createOrderForUser(userId, {
+      name: profile.name,
+      email: profile.email,
+    });
+  }
+
+  /** Pre-login Premium: create/verify account, then start Razorpay checkout. */
+  async createGuestOrder(body: { name?: string; email?: string; password?: string }) {
+    this.client();
+    const user = await this.authService.resolveBuyerForPremium(
+      body?.name || '',
+      body?.email || '',
+      body?.password || '',
+    );
+    if (isComplimentaryPremiumEmail(user.email)) {
+      throw new BadRequestException('This account already includes Premium. Sign in instead.');
+    }
+    if (this.authService.hasPremium(user)) {
+      throw new BadRequestException('Premium is already active on this account. Sign in to continue.');
+    }
+    return this.createOrderForUser(user.id, { name: user.name, email: user.email });
+  }
+
+  private async createOrderForUser(
+    userId: number,
+    prefill: { name?: string | null; email?: string | null },
+  ) {
     const order = await this.client().orders.create({
       amount: PREMIUM_AMOUNT_PAISE,
       currency: 'INR',
@@ -82,11 +109,40 @@ export class BillingService {
       priceInr: PREMIUM_PRICE_INR,
       name: 'Daruru Farms',
       description: `Daruru Premium · ₹${PREMIUM_PRICE_INR.toLocaleString('en-IN')} / year`,
-      prefill: { name: profile.name, email: profile.email },
+      prefill: { name: prefill.name, email: prefill.email },
     };
   }
 
   async verifyPayment(
+    userId: number,
+    body: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string },
+  ) {
+    return this.finalizePaidOrder(userId, body);
+  }
+
+  /** Pre-login verify: activate Premium and return a sign-in token. */
+  async verifyGuestPayment(body: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  }) {
+    const orderId = body?.razorpay_order_id;
+    if (!orderId) {
+      throw new BadRequestException('Payment details are incomplete.');
+    }
+    const record = await this.payments.findOne({ where: { razorpayOrderId: orderId } });
+    if (!record) {
+      throw new UnauthorizedException('This payment could not be matched to an order.');
+    }
+    const profile = await this.finalizePaidOrder(record.userId, body);
+    const { accessToken } = this.authService.issueOwnerToken({
+      id: record.userId,
+      email: profile.email,
+    });
+    return { ...profile, accessToken };
+  }
+
+  private async finalizePaidOrder(
     userId: number,
     body: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string },
   ) {

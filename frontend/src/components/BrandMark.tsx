@@ -2,7 +2,7 @@ import React from 'react';
 
 export const BRAND_LOGO_SRC = '/daruru-logo.png';
 export const BRAND_NAME = 'Daruru Farms';
-export const BRAND_TAGLINE = 'Intelligence for every pomegranate.';
+export const BRAND_TAGLINE = 'Intelligence for every pomegranate farm.';
 
 export const BrandLogo: React.FC<{
   size?: number;

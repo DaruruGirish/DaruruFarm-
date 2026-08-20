@@ -1,7 +1,14 @@
 node_modules
 dist
-npm-debug.log
+uploads
 .env
+.env.*
+!.env.example
+coverage
+*.log
 .git
-Dockerfile
-docker-compose.yml
+.gitignore
+README.md
+test
+**/*.spec.ts
+**/*.e2e-spec.ts

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Farm } from './farm.entity';
@@ -21,7 +21,10 @@ export class FarmService {
     const owner = await this.userRepository.findOne({ where: { id: user.id } });
     const count = await this.farmRepository.count({ where: { user: { id: user.id } } });
     if (count >= 1 && !userHasPremium(owner)) {
-      throw new ForbiddenException('Free plan includes 1 holding. Upgrade to Premium (₹3,000/year) for unlimited holdings.');
+      throw new ForbiddenException('Free plan includes 1 holding. Upgrade to Premium (₹5,000/year) for unlimited holdings.');
+    }
+    if (createFarmDto.latitude == null || createFarmDto.longitude == null) {
+      throw new BadRequestException('Farm location is required. Search a place or use GPS so we can store latitude and longitude.');
     }
     const farm = this.farmRepository.create({
       ...createFarmDto,

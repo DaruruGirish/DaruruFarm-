@@ -1,0 +1,6 @@
+# Host CI only — no TensorFlow wheel (TF comes from the Docker base image).
+opencv-python-headless
+numpy
+scikit-learn==1.5.1
+pillow
+flask

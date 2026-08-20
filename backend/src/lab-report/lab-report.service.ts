@@ -30,7 +30,7 @@ export class LabReportService {
   ): Promise<LabReport> {
     const owner = await this.userRepository.findOne({ where: { id: user.id } });
     if (!userHasPremium(owner)) {
-      throw new ForbiddenException('Lab report uploads are a Premium feature (₹3,000/year).');
+      throw new ForbiddenException('Lab report uploads are a Premium feature (₹5,000/year).');
     }
     let farm: Farm | null = null;
     if (farmId) {

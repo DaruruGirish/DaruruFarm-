@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import DiseasePredictor, { WeatherOutbreakRisk } from './DiseasePredictor';
+import DiseasePredictor from './DiseasePredictor';
+import { PomegranateBacterialBlightRisk } from './PomegranateBacterialBlightRisk';
 import { PricingPlans, PremiumGate } from './PricingPlans';
 import { BrandLogo, BRAND_NAME, BRAND_TAGLINE } from './BrandMark';
 import { isPremiumActive } from '../plans';
@@ -10,7 +11,7 @@ import {
   CloudRain, Cloud, Sun, Droplets, Wind, AlertTriangle, Copy, Bot, ChevronDown,
   Activity, IndianRupee, Search, Pencil, Bell,
   ClipboardList, Image as ImageIcon, Upload, Camera, Bug, ArrowUpRight, ArrowDownRight,
-  HelpCircle, Phone, Mail, MessageSquare, Send, FileText, ListTodo, Check, Crown
+  HelpCircle, Phone, Mail, MessageSquare, Send, FileText, ListTodo, Check, Crown, Eye, Lock, ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -31,6 +32,10 @@ interface UserProfile {
   plan?: string | null;
   premiumUntil?: string | null;
   password?: string;
+  role?: string;
+  username?: string;
+  ownerName?: string;
+  readOnly?: boolean;
 }
 
 interface Farm {
@@ -71,6 +76,7 @@ interface DailyActivity {
   pesticideName?: string;
   pesticideQuantity?: string;
   pesticideTime?: string;
+  waterHours?: number | null;
   farm: Farm;
 }
 
@@ -130,6 +136,15 @@ interface VisionPrediction {
   confidence: number;
   plantPart: string;
   uncertain: boolean;
+  severity?: string | null;
+  heatmapUrl?: string | null;
+  recommendations?: {
+    explanation?: string;
+    immediateActions?: string[];
+    treatmentOptions?: string[];
+    bestPractices?: string[];
+    monitoring?: string[];
+  } | null;
   createdAt: string;
   farm?: Farm | null;
 }
@@ -148,6 +163,15 @@ const placeLabel = (place: PlaceMatch) =>
   [place.name, place.admin1, place.country].filter(Boolean).join(', ');
 
 const HIGH_CONFIDENCE = 85;
+
+const clockTimeValue = (value?: string) => {
+  if (value && /^\d{1,2}:\d{2}/.test(value)) {
+    const [hours, minutes] = value.split(':');
+    return `${hours.padStart(2, '0')}:${minutes.slice(0, 2)}`;
+  }
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+};
 
 const isHighConfidenceDisease = (row: VisionPrediction) => {
   const name = (row.predictedDisease || '').toLowerCase();
@@ -174,6 +198,10 @@ const ACTIVITY_TYPES = [
 const isPesticideLog = (act: { activityType: string; pesticideName?: string }) =>
   act.activityType === 'Pesticide Application' || Boolean(act.pesticideName && act.pesticideName !== 'None');
 
+const isWaterSupplyLog = (act: { activityType: string }) => act.activityType === 'Water Supply';
+
+const PREMIUM_TAB_IDS = new Set(['diseases', 'gallery', 'pesticides', 'assistant']);
+
 const formatForDateTimeLocal = (dateString: string) => {
   if (!dateString) return '';
   const date = new Date(dateString);
@@ -182,7 +210,7 @@ const formatForDateTimeLocal = (dateString: string) => {
 };
 
 export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'farms' | 'expenses' | 'activities' | 'pesticides' | 'gallery' | 'todos' | 'diseases' | 'support' | 'profile' | 'assistant' | 'plans'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'farms' | 'expenses' | 'activities' | 'pesticides' | 'water' | 'gallery' | 'todos' | 'diseases' | 'support' | 'profile' | 'assistant' | 'plans'>('overview');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [farms, setFarms] = useState<Farm[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -209,8 +237,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   const [activityTypeFilter, setActivityTypeFilter] = useState('');
   const [selectedDisease, setSelectedDisease] = useState<DiseaseEvent | null>(null);
   const [galleryDropActive, setGalleryDropActive] = useState(false);
+  const [analyzingGalleryId, setAnalyzingGalleryId] = useState<number | null>(null);
+  const [galleryDetectResult, setGalleryDetectResult] = useState<{
+    disease: string;
+    confidence: number;
+    severity: string | null;
+    heatmap: string | null;
+  } | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+  const [viewers, setViewers] = useState<{ id: number; username: string; name: string; createdAt?: string }[]>([]);
+  const [viewerName, setViewerName] = useState('');
+  const [viewerUsername, setViewerUsername] = useState('');
+  const [viewerPassword, setViewerPassword] = useState('');
+  const [viewerSaving, setViewerSaving] = useState(false);
+
+  const denyIfViewer = () => {
+    if (profile?.role === 'viewer') {
+      toast.error('This inspector login can view the farm but cannot change records.');
+      return true;
+    }
+    return false;
+  };
 
   // Search & Filter states
   const [expenseSearch, setExpenseSearch] = useState('');
@@ -220,6 +268,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   const [pesticideSearch, setPesticideSearch] = useState('');
   const [pesticideFilterFarmId, setPesticideFilterFarmId] = useState('');
   const [loggingPesticide, setLoggingPesticide] = useState(false);
+  const [loggingWater, setLoggingWater] = useState(false);
+  const [formActWaterHours, setFormActWaterHours] = useState('');
+  const [waterFilterFarmId, setWaterFilterFarmId] = useState('');
   const [galleryFilterFarmId, setGalleryFilterFarmId] = useState('');
   const [diseaseFilterFarmId, setDiseaseFilterFarmId] = useState('');
   const [labReportFilter, setLabReportFilter] = useState<'all' | 'soil' | 'ph'>('all');
@@ -239,7 +290,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   const [todoFarmId, setTodoFarmId] = useState('');
   const [todoSubmitting, setTodoSubmitting] = useState(false);
   const [todoShowDone, setTodoShowDone] = useState(true);
-  const [pendingGalleryAnalyze, setPendingGalleryAnalyze] = useState<{ id: number; filename: string; caption?: string; farmId?: number } | null>(null);
 
   // Modals visibility
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -253,6 +303,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   const [formLocationLabel, setFormLocationLabel] = useState('');
   const [formLatitude, setFormLatitude] = useState('');
   const [formLongitude, setFormLongitude] = useState('');
+  const [formPlaceMatches, setFormPlaceMatches] = useState<PlaceMatch[]>([]);
+  const [formPlaceSearching, setFormPlaceSearching] = useState(false);
+  const [formLocating, setFormLocating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSubmitting, setFormSubmitting] = useState(false);
 
@@ -278,6 +331,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   const [formExpSubmitting, setFormExpSubmitting] = useState(false);
 
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
+  const [activityModalReturnTab, setActivityModalReturnTab] = useState<typeof activeTab | null>(null);
+  const [reportModalReturnTab, setReportModalReturnTab] = useState<typeof activeTab | null>(null);
   const [editingActivity, setEditingActivity] = useState<DailyActivity | null>(null);
   const [formActDate, setFormActDate] = useState('');
   const [formActType, setFormActType] = useState('Irrigation');
@@ -349,6 +404,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
   const handleDeleteImage = async (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (denyIfViewer()) return;
     setConfirmDialog({
       title: 'Delete photo',
       message: 'This photo will be removed from the gallery and cannot be restored.',
@@ -369,7 +425,37 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     });
   };
 
+  const handleDetectGalleryDisease = async (img: GalleryImage, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setAnalyzingGalleryId(img.id);
+    setGalleryDetectResult(null);
+    try {
+      const response = await fetch(`/api/disease-management/analyze-gallery/${img.id}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const message = Array.isArray(data?.message)
+          ? data.message.join(' ')
+          : data?.message || 'Disease detection failed.';
+        throw new Error(message);
+      }
+      setGalleryDetectResult(data);
+      toast.success(`${formatPredictedDisease(data.disease)} detected`);
+      const predictionsRes = await fetch(`/api/disease-management/predictions`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (predictionsRes.ok) setVisionPredictions(await predictionsRes.json());
+    } catch (err: any) {
+      toast.error(err?.message || 'Disease detection failed.');
+    } finally {
+      setAnalyzingGalleryId(null);
+    }
+  };
+
   const openDiseaseModal = () => {
+    if (denyIfViewer()) return;
     setDiseaseFile(null);
     setDiseaseNameInput('');
     setDiseaseTempInput(dashboardData?.weather?.temp?.toString() || '25');
@@ -396,11 +482,46 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     }
   };
 
-  // Fetch API Data
+  const authHeaders = { Authorization: `Bearer ${token}` };
+
+  const applyListResponses = async (responses: {
+    farmsRes: Response;
+    expensesRes?: Response | null;
+    activitiesRes: Response;
+    galleryRes?: Response | null;
+    diseaseRes?: Response | null;
+    contactRes: Response;
+    reportsRes: Response;
+    todosRes: Response;
+    predictionsRes?: Response | null;
+  }) => {
+    const {
+      farmsRes, expensesRes, activitiesRes, galleryRes, diseaseRes,
+      contactRes, reportsRes, todosRes, predictionsRes,
+    } = responses;
+    if (farmsRes.ok) setFarms(await farmsRes.json());
+    if (expensesRes?.ok) setExpenses(await expensesRes.json());
+    if (activitiesRes.ok) setActivities(await activitiesRes.json());
+    if (galleryRes?.ok) setGalleryImages(await galleryRes.json());
+    if (diseaseRes?.ok) setDiseaseEvents(await diseaseRes.json());
+    if (contactRes.ok) setContactInquiries(await contactRes.json());
+    if (reportsRes.ok) setUploadedLabReports(await reportsRes.json());
+    if (todosRes.ok) setTodos(await todosRes.json());
+    if (predictionsRes?.ok) setVisionPredictions(await predictionsRes.json());
+  };
+
+  const fetchDashboard = async () => {
+    const dashboardQs = selectedFarmId ? `?farmId=${encodeURIComponent(selectedFarmId)}` : '';
+    const dashboardRes = await fetch(`/api/dashboard${dashboardQs}`, { headers: authHeaders });
+    if (dashboardRes.ok) setDashboardData(await dashboardRes.json());
+  };
+
   const fetchData = async () => {
+    setError(null);
+    setLoading(true);
     try {
       const profileRes = await fetch(`/api/auth/profile`, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
       });
 
       if (!profileRes.ok) {
@@ -408,38 +529,48 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
           onLogout();
           return;
         }
-        throw new Error('Unauthorized session');
+        throw new Error('Could not load your account. Make sure the backend is running on port 3000.');
       }
+
       const profileData = await profileRes.json();
       setProfile(profileData);
+      const viewerMode = profileData?.role === 'viewer';
+      const premiumMode = isPremiumActive(profileData);
+      if (viewerMode) setExpenses([]);
+      if (!premiumMode) {
+        setGalleryImages([]);
+        setDiseaseEvents([]);
+        setVisionPredictions([]);
+      }
 
-      const [farmsRes, expensesRes, activitiesRes, galleryRes, diseaseRes, contactRes, dashboardRes, reportsRes, todosRes, predictionsRes] = await Promise.all([
-        fetch(`/api/farms`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`/api/expenses`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`/api/daily-activities`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`/api/gallery`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`/api/disease-management`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`/api/contact`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`/api/dashboard`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`/api/lab-reports`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`/api/todos`, { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch(`/api/disease-management/predictions`, { headers: { 'Authorization': `Bearer ${token}` } }),
+      const dashboardQs = selectedFarmId ? `?farmId=${encodeURIComponent(selectedFarmId)}` : '';
+      const [
+        farmsRes, expensesRes, activitiesRes, galleryRes, diseaseRes,
+        contactRes, dashboardRes, reportsRes, todosRes, predictionsRes,
+      ] = await Promise.all([
+        fetch(`/api/farms`, { headers: authHeaders }),
+        viewerMode ? Promise.resolve(null) : fetch(`/api/expenses`, { headers: authHeaders }),
+        fetch(`/api/daily-activities`, { headers: authHeaders }),
+        premiumMode ? fetch(`/api/gallery`, { headers: authHeaders }) : Promise.resolve(null),
+        premiumMode ? fetch(`/api/disease-management`, { headers: authHeaders }) : Promise.resolve(null),
+        fetch(`/api/contact`, { headers: authHeaders }),
+        fetch(`/api/dashboard${dashboardQs}`, { headers: authHeaders }),
+        fetch(`/api/lab-reports`, { headers: authHeaders }),
+        fetch(`/api/todos`, { headers: authHeaders }),
+        premiumMode ? fetch(`/api/disease-management/predictions`, { headers: authHeaders }) : Promise.resolve(null),
       ]);
 
-      if (farmsRes.ok) setFarms(await farmsRes.json());
-      if (expensesRes.ok) setExpenses(await expensesRes.json());
-      if (activitiesRes.ok) setActivities(await activitiesRes.json());
-      if (galleryRes.ok) setGalleryImages(await galleryRes.json());
-      if (diseaseRes.ok) setDiseaseEvents(await diseaseRes.json());
-      if (contactRes.ok) setContactInquiries(await contactRes.json());
+      await applyListResponses({
+        farmsRes, expensesRes, activitiesRes, galleryRes, diseaseRes,
+        contactRes, reportsRes, todosRes, predictionsRes,
+      });
       if (dashboardRes.ok) setDashboardData(await dashboardRes.json());
-      if (reportsRes.ok) setUploadedLabReports(await reportsRes.json());
-      if (todosRes.ok) setTodos(await todosRes.json());
-      if (predictionsRes.ok) setVisionPredictions(await predictionsRes.json());
-
     } catch (err: any) {
-      setError(err.message || 'Connecting to cockpit services failed');
-      toast.error('Cockpit telemetry connection failed');
+      const offline = err?.message === 'Failed to fetch';
+      setError(offline
+        ? 'The API on port 3000 is not running. Start the backend, then try again.'
+        : (err.message || 'Connecting to cockpit services failed'));
+      toast.error(offline ? 'Backend is not running on port 3000' : 'Could not load farm data');
     } finally {
       setLoading(false);
     }
@@ -447,17 +578,55 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
   useEffect(() => {
     fetchData();
-  }, [token, onLogout]);
+  }, [token]);
+
+  useEffect(() => {
+    if (!token || loading) return;
+    fetchDashboard().catch(() => {
+      toast.error('Could not refresh analysis for this holding');
+    });
+  }, [selectedFarmId]);
 
   useEffect(() => {
     if (loading) return;
+    if (profile?.role === 'viewer') return;
     if (sessionStorage.getItem(LOCATION_PROMPT_SKIP_KEY) === '1') return;
     const missing = farms.filter((farm) => !hasFarmCoordinates(farm));
     if (farms.length === 0 || missing.length > 0) {
       setLocationPromptFarmId(missing.length === 1 ? String(missing[0].id) : 'all');
       setShowLocationPrompt(true);
     }
-  }, [loading, farms, token]);
+  }, [loading, farms, token, profile?.role]);
+
+  useEffect(() => {
+    if (activeTab !== 'profile' || profile?.role === 'viewer' || !token) return;
+    fetch('/api/auth/viewers', { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setViewers)
+      .catch(() => setViewers([]));
+  }, [activeTab, token, profile?.role]);
+
+  useEffect(() => {
+    if (profile?.role === 'viewer' && activeTab === 'expenses') {
+      setActiveTab('overview');
+    }
+  }, [profile?.role, activeTab]);
+
+  useEffect(() => {
+    if (!isActivityModalOpen && !isReportModalOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (isActivityModalOpen && !formActSubmitting) closeActivityModal();
+      else if (isReportModalOpen && !reportSubmitting) closeReportModal();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isActivityModalOpen, isReportModalOpen, formActSubmitting, reportSubmitting, activityModalReturnTab, reportModalReturnTab]);
 
   // Refresh lists
   const refreshFarms = async () => {
@@ -485,11 +654,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     if (res.ok) setDiseaseEvents(await res.json());
   };
 
-  const refreshPredictions = async () => {
-    const res = await fetch(`/api/disease-management/predictions`, { headers: { 'Authorization': `Bearer ${token}` } });
-    if (res.ok) setVisionPredictions(await res.json());
-  };
-
   const refreshLabReports = async () => {
     const res = await fetch(`/api/lab-reports`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (res.ok) setUploadedLabReports(await res.json());
@@ -506,8 +670,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   };
 
   const refreshDashboardData = async () => {
-    const res = await fetch(`/api/dashboard`, { headers: { 'Authorization': `Bearer ${token}` } });
+    const dashboardQs = selectedFarmId ? `?farmId=${encodeURIComponent(selectedFarmId)}` : '';
+    const res = await fetch(`/api/dashboard${dashboardQs}`, { headers: { 'Authorization': `Bearer ${token}` } });
     if (res.ok) setDashboardData(await res.json());
+  };
+
+  const applyPlaceToForm = (place: PlaceMatch) => {
+    const label = placeLabel(place);
+    setFormLocationLabel(label);
+    setFormLatitude(String(place.latitude));
+    setFormLongitude(String(place.longitude));
+    setFormPlaceMatches([]);
   };
 
   const applyPlaceToPrompt = (place: PlaceMatch) => {
@@ -529,19 +702,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     setLocationSearching(true);
     setLocationError(null);
     try {
-      const res = await fetch(
-        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=6&language=en&format=json`
-      );
+      const res = await fetch(`/api/weather/places?q=${encodeURIComponent(query)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!res.ok) throw new Error('Could not look up that place.');
-      const data = await res.json();
-      const results: PlaceMatch[] = (data.results || []).map((row: any) => ({
-        id: row.id,
-        name: row.name,
-        latitude: row.latitude,
-        longitude: row.longitude,
-        admin1: row.admin1,
-        country: row.country,
-      }));
+      const results: PlaceMatch[] = await res.json();
       if (results.length === 0) {
         setLocationMatches([]);
         setLocationError('No matching place found. Try a nearby city.');
@@ -571,14 +736,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
         setLocationLat(lat.toFixed(6));
         setLocationLng(lng.toFixed(6));
         try {
-          const res = await fetch(
-            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
-          );
+          const res = await fetch(`/api/weather/reverse?lat=${lat}&lng=${lng}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
           if (res.ok) {
             const data = await res.json();
-            const label = [data.locality || data.city, data.principalSubdivision, data.countryName]
-              .filter(Boolean)
-              .join(', ');
+            const label = data.name || [data.admin1, data.country].filter(Boolean).join(', ');
             if (label) {
               setLocationLabelInput(label);
               setLocationQuery(label);
@@ -599,6 +762,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   };
 
   const saveFarmLocation = async () => {
+    if (denyIfViewer()) return;
     const latitude = Number(locationLat);
     const longitude = Number(locationLng);
     const label = locationLabelInput.trim() || locationQuery.trim();
@@ -657,9 +821,73 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     setShowLocationPrompt(false);
   };
 
+  const searchFormPlaces = async () => {
+    const query = formLocationLabel.trim();
+    if (query.length < 2) {
+      setFormError('Enter a city, village, or district so we can save latitude and longitude.');
+      return;
+    }
+    setFormPlaceSearching(true);
+    setFormError(null);
+    try {
+      const res = await fetch(`/api/weather/places?q=${encodeURIComponent(query)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Could not look up that place.');
+      const results: PlaceMatch[] = await res.json();
+      if (results.length === 0) {
+        setFormPlaceMatches([]);
+        setFormError('No matching place found. Try a nearby city.');
+        return;
+      }
+      applyPlaceToForm(results[0]);
+      setFormPlaceMatches(results);
+    } catch (err: any) {
+      setFormError(err.message || 'Could not look up that place.');
+    } finally {
+      setFormPlaceSearching(false);
+    }
+  };
+
+  const useFormDeviceLocation = () => {
+    if (!navigator.geolocation) {
+      setFormError('This browser cannot share GPS location.');
+      return;
+    }
+    setFormLocating(true);
+    setFormError(null);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        setFormLatitude(lat.toFixed(6));
+        setFormLongitude(lng.toFixed(6));
+        try {
+          const res = await fetch(`/api/weather/reverse?lat=${lat}&lng=${lng}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.name) setFormLocationLabel(data.name);
+          }
+        } catch {
+          // Coordinates are enough even if the place name lookup fails.
+        } finally {
+          setFormLocating(false);
+        }
+      },
+      () => {
+        setFormLocating(false);
+        setFormError('Location permission was denied. Search the farm place instead.');
+      },
+      { enableHighAccuracy: true, timeout: 12000 }
+    );
+  };
+
   // CRUD Submissions
   const handleFarmSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (denyIfViewer()) return;
     setFormError(null);
 
     if (!formName.trim() || !formAddress.trim() || !formCropVariety.trim() || !formCropSeasonStart) {
@@ -675,7 +903,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
       return;
     }
 
-    setFormSubmitting(true);
     const pendingRaw = localStorage.getItem(PENDING_FARM_LOCATION_KEY);
     let pending: { locationLabel?: string; latitude?: number; longitude?: number } | null = null;
     if (pendingRaw) {
@@ -690,6 +917,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     const longitude = formLongitude.trim() ? Number(formLongitude) : pending?.longitude;
     const locationLabel = formLocationLabel.trim() || pending?.locationLabel || undefined;
 
+    if (!Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude))) {
+      setFormError('Search or locate the farm so we can store latitude and longitude.');
+      return;
+    }
+
+    setFormSubmitting(true);
+
     const body: Record<string, unknown> = {
       name: formName,
       address: formAddress,
@@ -699,10 +933,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
       cropSeasonStartTime: new Date(formCropSeasonStart).toISOString(),
     };
     if (locationLabel) body.locationLabel = locationLabel;
-    if (Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude))) {
-      body.latitude = Number(latitude);
-      body.longitude = Number(longitude);
-    }
+    body.latitude = Number(latitude);
+    body.longitude = Number(longitude);
 
     try {
       const url = editingFarm ? `/api/farms/${editingFarm.id}` : `/api/farms`;
@@ -714,7 +946,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
         body: JSON.stringify(body),
       });
 
-      if (!response.ok) throw new Error('Saving farm failed');
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => null);
+        const message = Array.isArray(errBody?.message) ? errBody.message.join(' ') : errBody?.message;
+        throw new Error(message || 'Saving farm failed');
+      }
 
       toast.success(editingFarm ? 'Farm parameters updated' : 'New farm registered');
       if (body.latitude != null && body.longitude != null) {
@@ -731,6 +967,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   };
 
   const handleDeleteFarm = async (id: number) => {
+    if (denyIfViewer()) return;
     setConfirmDialog({
       title: 'Delete holding',
       message: 'This holding will be removed. Linked logs and photos may also be affected.',
@@ -754,6 +991,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
   const handleExpenseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (denyIfViewer()) return;
     setFormExpError(null);
 
     const amount = parseFloat(formExpAmount);
@@ -789,6 +1027,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   };
 
   const handleDeleteExpense = async (id: number) => {
+    if (denyIfViewer()) return;
     setConfirmDialog({
       title: 'Delete expense',
       message: 'This expense will be permanently removed from the ledger.',
@@ -812,28 +1051,64 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
   const handleActivitySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (denyIfViewer()) return;
     setFormActError(null);
 
-    if (!formActFarmId || !formActNotes.trim()) {
+    if (!formActFarmId) {
+      setFormActError('Choose a farm.');
+      return;
+    }
+
+    if (loggingWater || formActType === 'Water Supply') {
+      const hours = Number(formActWaterHours);
+      if (!Number.isFinite(hours) || hours <= 0) {
+        setFormActError('Enter how many hours of water were supplied.');
+        return;
+      }
+    } else if (!loggingPesticide && !formActNotes.trim()) {
       setFormActError('Date, farm, and notes are required.');
       return;
     }
+
     if (loggingPesticide || formActType === 'Pesticide Application') {
       if (!formActPestName.trim() || formActPestName.trim().toLowerCase() === 'none') {
         setFormActError('Enter the pesticide name.');
         return;
       }
+      if (!formActPestQty.trim() || formActPestQty.trim().toLowerCase() === 'none') {
+        setFormActError('Enter the quantity.');
+        return;
+      }
+      if (!formActPestTime.trim() || formActPestTime.trim().toLowerCase() === 'none') {
+        setFormActError('Enter the spray time.');
+        return;
+      }
     }
 
     setFormActSubmitting(true);
+    const isWater = loggingWater || formActType === 'Water Supply';
+    const isPest = loggingPesticide || formActType === 'Pesticide Application';
+    const waterHours = isWater ? Number(formActWaterHours) : undefined;
+    const sprayDate = isPest && !editingActivity
+      ? new Date().toISOString().split('T')[0]
+      : formActDate;
     const body = {
-      date: formActDate,
-      activityType: loggingPesticide ? 'Pesticide Application' : formActType,
-      notes: formActNotes,
+      date: sprayDate,
+      activityType: loggingPesticide
+        ? 'Pesticide Application'
+        : isWater
+          ? 'Water Supply'
+          : formActType,
+      notes: isPest
+        ? ''
+        : isWater
+          ? (formActNotes.trim() || `Water supplied for ${waterHours} hour${waterHours === 1 ? '' : 's'}.`)
+          : formActNotes,
       farmId: parseInt(formActFarmId),
       pesticideName: formActPestName || 'None',
       pesticideQuantity: formActPestQty || 'None',
       pesticideTime: formActPestTime || 'None',
+      waterHours: isWater ? waterHours : undefined,
     };
 
     try {
@@ -846,11 +1121,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
         body: JSON.stringify(body),
       });
 
-      if (!response.ok) throw new Error('Logging activity failed');
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        const message = Array.isArray(data.message) ? data.message.join(' ') : data.message;
+        throw new Error(message || 'Logging activity failed');
+      }
 
-      toast.success(editingActivity ? 'Log revised' : loggingPesticide ? 'Pesticide spray recorded' : 'Operation recorded');
-      setIsActivityModalOpen(false);
-      setLoggingPesticide(false);
+      toast.success(
+        editingActivity
+          ? 'Log revised'
+          : loggingPesticide
+            ? 'Pesticide spray recorded'
+            : isWater
+              ? 'Water supply recorded'
+              : 'Work logged',
+      );
+      closeActivityModal();
       refreshActivities();
       refreshDashboardData();
     } catch (err: any) {
@@ -861,6 +1147,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   };
 
   const handleDeleteActivity = async (id: number) => {
+    if (denyIfViewer()) return;
     setConfirmDialog({
       title: 'Delete this log',
       message: 'This log will be permanently removed.',
@@ -882,22 +1169,77 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     });
   };
 
-  const openActivityLog = (act?: DailyActivity, pesticide = false) => {
-    setLoggingPesticide(pesticide);
+  const closeActivityModal = () => {
+    setIsActivityModalOpen(false);
+    setLoggingPesticide(false);
+    setLoggingWater(false);
+    setEditingActivity(null);
+    setFormActError(null);
+    const returnTo = activityModalReturnTab;
+    setActivityModalReturnTab(null);
+    if (returnTo) setActiveTab(returnTo);
+  };
+
+  const closeReportModal = () => {
+    setIsReportModalOpen(false);
+    setReportError(null);
+    setReportFile(null);
+    const returnTo = reportModalReturnTab;
+    setReportModalReturnTab(null);
+    if (returnTo) setActiveTab(returnTo);
+  };
+
+  const openReportUpload = () => {
+    if (!canEdit) return;
+    if (!isPremium) {
+      goToPlans();
+      return;
+    }
+    setReportModalReturnTab(activeTab);
+    setReportError(null);
+    setReportFile(null);
+    setReportTitle('');
+    setReportNotes('');
+    setReportCategory('soil');
+    setReportFarmId(farms[0]?.id?.toString() || '');
+    setIsReportModalOpen(true);
+  };
+
+  const openActivityLog = (
+    act?: DailyActivity,
+    pesticide = false,
+    water = false,
+    options?: { returnToTab?: typeof activeTab },
+  ) => {
+    if (denyIfViewer()) return;
+    if (options?.returnToTab) setActivityModalReturnTab(options.returnToTab);
+    else setActivityModalReturnTab(null);
+    const isWater = water || act?.activityType === 'Water Supply';
+    const isPest = pesticide || (!isWater && (act ? isPesticideLog(act) : false));
+    setLoggingWater(isWater);
+    setLoggingPesticide(isPest && !isWater);
     setEditingActivity(act || null);
-    setFormActType(pesticide ? 'Pesticide Application' : (act?.activityType || 'Irrigation'));
+    setFormActType(isWater ? 'Water Supply' : isPest ? 'Pesticide Application' : (act?.activityType || 'Irrigation'));
     setFormActNotes(act?.notes || '');
     setFormActDate(act ? act.date.split('T')[0] : new Date().toISOString().split('T')[0]);
     setFormActFarmId(act?.farm?.id?.toString() || (farms[0]?.id?.toString() || ''));
-    setFormActPestName(act?.pesticideName && act.pesticideName !== 'None' ? act.pesticideName : pesticide ? '' : 'None');
-    setFormActPestQty(act?.pesticideQuantity && act.pesticideQuantity !== 'None' ? act.pesticideQuantity : pesticide ? '' : 'None');
-    setFormActPestTime(act?.pesticideTime && act.pesticideTime !== 'None' ? act.pesticideTime : pesticide ? '' : 'None');
+    setFormActPestName(act?.pesticideName && act.pesticideName !== 'None' ? act.pesticideName : isPest ? '' : 'None');
+    setFormActPestQty(act?.pesticideQuantity && act.pesticideQuantity !== 'None' ? act.pesticideQuantity : isPest ? '' : 'None');
+    setFormActPestTime(
+      act?.pesticideTime && act.pesticideTime !== 'None'
+        ? clockTimeValue(act.pesticideTime)
+        : isPest
+          ? clockTimeValue()
+          : 'None',
+    );
+    setFormActWaterHours(act?.waterHours != null ? String(act.waterHours) : '');
     setFormActError(null);
     setIsActivityModalOpen(true);
   };
 
   const handleLabReportUpload = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (denyIfViewer()) return;
     setReportError(null);
     if (!reportFile) {
       setReportError('Choose a PDF of the soil fertility or pH report.');
@@ -925,8 +1267,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
         throw new Error(Array.isArray(data.message) ? data.message[0] : data.message || 'Could not upload this report.');
       }
       toast.success('Report uploaded');
-      setIsReportModalOpen(false);
-      setReportFile(null);
+      closeReportModal();
       setReportTitle('');
       setReportNotes('');
       refreshLabReports();
@@ -939,6 +1280,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
   const handleAddTodo = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (denyIfViewer()) return;
     const title = todoTitle.trim();
     if (!title) {
       toast.error('Write the upcoming work first.');
@@ -973,6 +1315,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   };
 
   const handleToggleTodo = async (todo: FarmTodo) => {
+    if (denyIfViewer()) return;
     try {
       const response = await fetch(`/api/todos/${todo.id}`, {
         method: 'PUT',
@@ -987,6 +1330,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   };
 
   const handleDeleteTodo = (id: number) => {
+    if (denyIfViewer()) return;
     setConfirmDialog({
       title: 'Remove this to-do',
       message: 'This upcoming work item will be deleted.',
@@ -1009,6 +1353,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
   const handleDeleteLabReport = (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (denyIfViewer()) return;
     setConfirmDialog({
       title: 'Delete report',
       message: 'This PDF will be removed and cannot be restored.',
@@ -1031,6 +1376,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (denyIfViewer()) return;
     setUploadError(null);
 
     if (!selectedFile) {
@@ -1065,6 +1411,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
   const handleDiseaseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (denyIfViewer()) return;
     setDiseaseErrorMsg(null);
 
     if (!diseaseFile || !diseaseNameInput.trim() || !diseaseFarmId) {
@@ -1112,6 +1459,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
   const handleDeleteDisease = async (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (denyIfViewer()) return;
     setConfirmDialog({
       title: 'Delete disease record',
       message: 'This disease record and its photo will be removed from the tracker.',
@@ -1137,6 +1485,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   // Support inquiry submission
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (denyIfViewer()) return;
     setContactFormError(null);
 
     if (!contactSubject.trim() || !contactMessage.trim()) {
@@ -1194,21 +1543,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
         reply = 'Hello. Ask about expenses, diseases, water, irrigation, or recent activities. Answers come from your records.';
       } else if (query.includes('spend') || query.includes('expens') || query.includes('ledger')) {
         kind = 'farm';
-        const july = expenses.filter((exp) => {
-          const d = new Date(exp.date);
-          return d.getFullYear() === 2026 && d.getMonth() === 6;
-        }).reduce((s, exp) => s + Number(exp.amount), 0);
-        reply = `Your recorded expenses total ₹${totalExpensesSum.toLocaleString()}. July 2026 spending in the ledger is ₹${Math.round(july).toLocaleString()}.`;
+        const monthSpend = expenses
+          .filter((exp) => {
+            const d = new Date(exp.date);
+            return d.getFullYear() === new Date().getFullYear() && d.getMonth() === new Date().getMonth();
+          })
+          .reduce((s, exp) => s + Number(exp.amount), 0);
+        reply = `Your recorded expenses total ₹${totalExpensesSum.toLocaleString()}. This month in the ledger is ₹${Math.round(monthSpend).toLocaleString()}.`;
       } else if (query.includes('disease') || query.includes('bug') || query.includes('outbreak')) {
         kind = 'farm';
         const names = [...new Set(diseaseEvents.map((d) => d.diseaseName))].slice(0, 5).join(', ') || 'none logged';
         reply = `There are ${diseaseEvents.length} disease records. Names on file: ${names}. Severity is inferred from temperature and humidity at detection, not from a separate status API.`;
       } else if (query.includes('water') || query.includes('irrigation')) {
         kind = 'farm';
-        const jul = dashboardData?.charts?.waterUsageRainfall?.find((row: any) => row.month === 'Jul');
-        reply = jul
-          ? `July irrigation in the dashboard series is ${jul.water} kL, with ${jul.rain} mm rainfall. I do not have a tomorrow irrigation recommendation from the API.`
-          : `You have ${activities.filter((a) => a.activityType === 'Irrigation').length} irrigation logs. No irrigation recommendation engine is connected.`;
+        const irrigations = activities.filter((a) => a.activityType === 'Irrigation').length;
+        reply = irrigations
+          ? `You have ${irrigations} irrigation logs. Weather rainfall is on Analysis when the farm location is saved.`
+          : 'No irrigation logs yet. Add them on Daily Logs. Rainfall comes from Open-Meteo after you save the farm location.';
       } else if (query.includes('weather') || query.includes('temp') || query.includes('rain') || query.includes('tomorrow')) {
         kind = 'weather';
         reply = `Telemetry weather: ${dashboardData?.weather?.temp ?? '—'}°C, ${dashboardData?.weather?.condition || 'unknown'}, humidity ${dashboardData?.weather?.humidity ?? '—'}%, wind ${dashboardData?.weather?.wind ?? '—'} km/h. Forecast-based irrigation advice is not calculated by the backend.`;
@@ -1230,9 +1581,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
         reply = latest
           ? `Latest log: ${latest.activityType} on ${new Date(latest.date).toLocaleDateString()} at ${latest.farm?.name || 'a holding'}. ${latest.notes}`
           : 'No daily logs are recorded yet.';
-      } else if (query.includes('risk') || query.includes('predict')) {
-        kind = 'ai';
-        reply = 'Disease risk percentages come from the predictor on the Diseases page after you submit telemetry. I will not invent a risk score here.';
+      } else if (query.includes('risk') || query.includes('predict') || query.includes('blight')) {
+        kind = 'weather';
+        reply = riskFarm && hasFarmCoordinates(riskFarm)
+          ? 'Open Analysis for the pomegranate bacterial blight weather indicator. It uses Open-Meteo history (24h/72h rain, rainy days, 3-day humidity) — not a validated scientific forecast.'
+          : 'Save a farm location first, then open Analysis for the pomegranate bacterial blight weather indicator.';
       } else if (query.includes('farm') || query.includes('holding') || query.includes('plant') || query.includes('acre')) {
         kind = 'farm';
         reply = `You have ${farms.length} holdings covering ${totalAcres} acres and ${totalTrees.toLocaleString()} plants.`;
@@ -1267,6 +1620,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
   };
 
   const visibleFarms = selectedFarmId ? farms.filter((f) => f.id.toString() === selectedFarmId) : farms;
+  const riskFarm =
+    (selectedFarmId ? farms.find((f) => f.id.toString() === selectedFarmId) : farms.find(hasFarmCoordinates)) ||
+    farms.find(hasFarmCoordinates) ||
+    null;
   const totalAcres = visibleFarms.reduce((acc, f) => acc + Number(f.totalAcres), 0).toFixed(1);
   const totalTrees = visibleFarms.reduce((acc, f) => acc + Number(f.numberOfTrees), 0);
   const totalExpensesSum = expenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
@@ -1283,36 +1640,56 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     { label: 'Irrigation & Power Utility', amount: irrigationPowerSpend, hint: 'Electricity, water pumps, grid upkeep' },
   ];
 
-  const julyExpensesActual = expenses
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonthIdx = now.getMonth();
+  const monthLabel = now.toLocaleString('default', { month: 'long' });
+  const previousMonth = new Date(currentYear, currentMonthIdx - 1, 1);
+  const monthExpensesActual = expenses
     .filter((exp) => {
       const d = new Date(exp.date);
-      return d.getFullYear() === 2026 && d.getMonth() === 6;
+      return d.getFullYear() === currentYear && d.getMonth() === currentMonthIdx;
     })
     .reduce((sum, exp) => sum + Number(exp.amount), 0);
-  const juneExpensesActual = expenses
+  const previousMonthExpensesActual = expenses
     .filter((exp) => {
       const d = new Date(exp.date);
-      return d.getFullYear() === 2026 && d.getMonth() === 5;
+      return d.getFullYear() === previousMonth.getFullYear() && d.getMonth() === previousMonth.getMonth();
     })
     .reduce((sum, exp) => sum + Number(exp.amount), 0);
-  const expenseMom = juneExpensesActual > 0
-    ? ((julyExpensesActual - juneExpensesActual) / juneExpensesActual) * 100
+  const expenseMom = previousMonthExpensesActual > 0
+    ? ((monthExpensesActual - previousMonthExpensesActual) / previousMonthExpensesActual) * 100
     : null;
 
-  const expenseTrendChart = [
-    { month: 'Jan', value: 68400 },
-    { month: 'Feb', value: 31200 },
-    { month: 'Mar', value: 142500 },
-    { month: 'Apr', value: 52800 },
-    { month: 'May', value: 168900 },
-    { month: 'Jun', value: 81500 },
-    { month: 'Jul', value: Math.round(julyExpensesActual) },
-  ];
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const expenseTrendChart = monthNames.slice(0, currentMonthIdx + 1).map((month, idx) => ({
+    month,
+    value: Math.round(
+      expenses
+        .filter((exp) => {
+          const d = new Date(exp.date);
+          return d.getFullYear() === currentYear && d.getMonth() === idx;
+        })
+        .reduce((sum, exp) => sum + Number(exp.amount), 0),
+    ),
+  }));
+  const hasExpenseTrend = expenses.length > 0;
 
   const highConfidencePredictions = visionPredictions.filter(isHighConfidenceDisease);
   const activeDiseaseCount = highConfidencePredictions.length;
   const isPremium = isPremiumActive(profile);
+  const isViewer = profile?.role === 'viewer';
+  const canEdit = !isViewer;
+  const openPrimaryTab = (tabId: string, opts?: { openChat?: boolean }) => {
+    setActiveTab(tabId as typeof activeTab);
+    setSidebarOpen(false);
+    if (opts?.openChat) setIsChatOpen(true);
+  };
   const goToPlans = () => {
+    if (isViewer) {
+      toast.message('Ask the farm owner if you need extra Premium tools.');
+      return;
+    }
     setActiveTab('plans');
     setSidebarOpen(false);
     setIsChatOpen(false);
@@ -1350,16 +1727,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
 
-  const expenseAverage = filteredExpenses.length
-    ? filteredExpenses.reduce((s, e) => s + Number(e.amount), 0) / filteredExpenses.length
-    : 0;
-  const expenseHighest = filteredExpenses.reduce((m, e) => Math.max(m, Number(e.amount)), 0);
   const categoryBreakdown = EXPENSE_CATEGORIES.map((cat) => ({
     cat,
     total: expenses.filter((e) => e.category === cat).reduce((s, e) => s + Number(e.amount), 0),
   })).filter((row) => row.total > 0);
 
   const filteredActivities = activities.filter((act) => {
+    if (isPesticideLog(act) || isWaterSupplyLog(act)) return false;
     const matchesSearch = act.notes?.toLowerCase().includes(activitySearch.toLowerCase()) || act.activityType.toLowerCase().includes(activitySearch.toLowerCase());
     const farmId = activityFilterFarmId || selectedFarmId;
     const matchesFarm = !farmId || act.farm?.id.toString() === farmId;
@@ -1372,12 +1746,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     const q = pesticideSearch.toLowerCase();
     const matchesSearch =
       !q ||
-      act.notes?.toLowerCase().includes(q) ||
       act.pesticideName?.toLowerCase().includes(q) ||
-      act.pesticideQuantity?.toLowerCase().includes(q);
+      act.pesticideQuantity?.toLowerCase().includes(q) ||
+      act.pesticideTime?.toLowerCase().includes(q);
     const farmId = pesticideFilterFarmId || selectedFarmId;
     const matchesFarm = !farmId || act.farm?.id.toString() === farmId;
     return matchesSearch && matchesFarm;
+  });
+
+  const filteredWaterLogs = activities.filter((act) => {
+    if (!isWaterSupplyLog(act)) return false;
+    const farmId = waterFilterFarmId || selectedFarmId;
+    return !farmId || act.farm?.id.toString() === farmId;
   });
 
   const filteredGalleryImages = galleryImages.filter((img) => {
@@ -1389,47 +1769,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
     return !farmId || event.farm?.id.toString() === farmId;
   });
 
-  const rainfallHumidityChart = dashboardData?.charts?.rainfallHumidity ?? (() => {
-    const rainByDay: Record<number, number> = {};
-    const humidityByDay: Record<number, number> = {};
-    diseaseEvents.forEach((event) => {
-      const d = new Date(event.detectedAt);
-      if (d.getFullYear() === 2026 && d.getMonth() === 6) {
-        rainByDay[d.getDate()] = Number(event.rainfall) || 0;
-        humidityByDay[d.getDate()] = Number(event.humidity) || 0;
-      }
-    });
-    const rainBase = [8, 12, 6, 4, 10, 18, 22, 16, 9, 14, 20, 35, 28, 15, 42, 78, 55, 30, 18, 25, 12, 8, 14, 20, 38, 72, 40, 16, 10, 8];
-    const humidityBase = [68, 70, 66, 65, 72, 75, 78, 74, 71, 76, 80, 84, 82, 77, 86, 92, 90, 85, 79, 81, 76, 73, 75, 78, 84, 91, 87, 80, 76, 74];
-    return rainBase.map((rain, idx) => {
-      const day = idx + 1;
-      return { day: `Jul ${day}`, rainfall: rainByDay[day] ?? rain, humidity: humidityByDay[day] ?? humidityBase[idx] };
-    });
-  })();
+  const rainfallHumidityChart = dashboardData?.charts?.rainfallHumidity ?? [];
+  const windTemperatureChart = dashboardData?.charts?.windTemperature ?? [];
+  const weatherForecast = dashboardData?.weather?.forecast ?? [];
 
-  const windTemperatureChart = dashboardData?.charts?.windTemperature ?? (() => {
-    const tempByDay: Record<number, number> = {};
-    diseaseEvents.forEach((event) => {
-      const d = new Date(event.detectedAt);
-      if (d.getFullYear() === 2026 && d.getMonth() === 6) {
-        tempByDay[d.getDate()] = Number(event.temp) || 0;
-      }
-    });
-    const windBase = [8, 10, 9, 7, 12, 16, 18, 14, 11, 13, 17, 22, 19, 12, 24, 28, 21, 15, 13, 16, 11, 9, 12, 15, 20, 26, 18, 12, 10, 9];
-    const tempBase = [27, 28, 29, 30, 28, 26, 25, 26, 27, 26, 25, 24, 24, 26, 23, 22, 23, 25, 26, 25, 27, 28, 27, 26, 24, 22, 23, 25, 26, 27];
-    return windBase.map((wind, idx) => {
-      const day = idx + 1;
-      return { day: `Jul ${day}`, wind, temp: tempByDay[day] || tempBase[idx] };
-    });
-  })();
-
-  const demoLabReports = (dashboardData?.labReports ?? [
-    { id: 'soil-0704', category: 'soil', title: 'Soil fertility & moisture panel', date: '2026-07-04', location: 'Root zone, all holdings', status: 'Watch', summary: 'Organic fertilizer applied. Moisture adequate; nitrogen slightly below target in compacted pockets.', metrics: [{ label: 'Soil pH', value: '6.5', range: '6.0–7.0' }, { label: 'Moisture', value: '28%', range: '25–35%' }, { label: 'EC', value: '0.92 dS/m', range: '< 1.2' }, { label: 'Organic C', value: '0.68%', range: '> 0.50%' }] },
-    { id: 'ph-0704', category: 'ph', title: 'Soil pH mapping', date: '2026-07-04', location: 'North and south plant rows', status: 'Optimal', summary: 'pH within orchard band after organic manure. No lime required this cycle.', metrics: [{ label: 'Mean pH', value: '6.5', range: '6.0–7.0' }, { label: 'Min pH', value: '6.2', range: '> 5.8' }, { label: 'Max pH', value: '6.8', range: '< 7.2' }] },
-    { id: 'soil-0712', category: 'soil', title: 'Post-fertilizer soil report', date: '2026-07-12', location: 'Fertilizer application bands', status: 'Optimal', summary: 'Even fertilizer distribution. Nutrient availability improved in the top 20 cm.', metrics: [{ label: 'Soil pH', value: '6.4', range: '6.0–7.0' }, { label: 'Available N', value: '268 kg/ha', range: '250–350' }, { label: 'Available P', value: '22 kg/ha', range: '20–40' }, { label: 'Available K', value: '198 kg/ha', range: '180–250' }] },
-    { id: 'soil-0719', category: 'soil', title: 'Soil moisture & debris-row survey', date: '2026-07-19', location: 'Major field rows', status: 'Watch', summary: 'Moisture good after weeding. Low-lying rows slightly wetter; monitor for fungal pressure.', metrics: [{ label: 'Soil pH', value: '6.3', range: '6.0–7.0' }, { label: 'Moisture', value: '33%', range: '25–35%' }, { label: 'Bulk density', value: '1.32 g/cm³', range: '< 1.40' }] },
-    { id: 'ph-0727', category: 'ph', title: 'Post-rain soil & leaf-zone pH', date: '2026-07-27', location: 'Plants with minor fungal spots', status: 'Watch', summary: 'Rain slightly acidified surface soil. Fungicide applied; retest pH after drainage improves.', metrics: [{ label: 'Surface pH', value: '6.1', range: '6.0–7.0' }, { label: '15 cm pH', value: '6.4', range: '6.0–7.0' }, { label: 'Irrigation pH', value: '6.9', range: '6.5–7.5' }] },
-  ]).filter((report: any) => report.category === 'soil' || report.category === 'ph');
   const uploadedMapped = uploadedLabReports
     .filter((report) => report.category === 'soil' || report.category === 'ph')
     .map((report) => ({
@@ -1444,7 +1787,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
       metrics: [] as { label: string; value: string; range: string }[],
       filename: report.filename,
     }));
-  const labReports = [...uploadedMapped, ...demoLabReports];
+  const labReports = uploadedMapped;
   const filteredLabReports = labReports.filter((report: any) => labReportFilter === 'all' || report.category === labReportFilter);
 
   // Custom tooltips
@@ -1494,7 +1837,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
           <AlertTriangle className="w-6 h-6 text-red-400" />
         </div>
         <h2 className="text-lg font-bold text-zinc-900 mb-1">Unable to load farm data</h2>
-        <p className="text-sm text-zinc-500 max-w-sm mb-4">Check your connection and try again.</p>
+        <p className="text-sm text-zinc-500 max-w-sm mb-4">{error}</p>
         <button
           onClick={fetchData}
           className="df-btn df-btn-primary"
@@ -1565,8 +1908,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
               </div>
               {[
                 { id: 'overview', label: 'Analysis', icon: LayoutDashboard, group: 'monitor' },
-                { id: 'diseases', label: 'Diseases', icon: Bug, group: 'monitor', badge: activeDiseaseCount },
-                { id: 'assistant', label: 'AI Assistant', icon: Bot, group: 'monitor' },
+                { id: 'diseases', label: 'Detect Disease', icon: Bug, group: 'monitor', badge: activeDiseaseCount },
+                ...(!isViewer ? [{ id: 'assistant', label: 'AI Assistant', icon: Bot, group: 'monitor' }] : []),
               ].map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -1575,13 +1918,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     key={tab.id}
                     title={sidebarCollapsed ? tab.label : undefined}
                     onClick={() => {
-                      if (tab.id === 'assistant' && !isPremium) {
-                        goToPlans();
-                        return;
-                      }
-                      setActiveTab(tab.id as any);
-                      setSidebarOpen(false);
-                      if (tab.id === 'assistant') setIsChatOpen(true);
+                      openPrimaryTab(tab.id, { openChat: tab.id === 'assistant' });
                     }}
                     className={`w-full flex items-center gap-3 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer ${sidebarCollapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'} ${
                       isActive
@@ -1591,6 +1928,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                   >
                     <Icon className="w-4 h-4 shrink-0" />
                     {!sidebarCollapsed && <span className="flex-1 text-left">{tab.label}</span>}
+                    {!sidebarCollapsed && !isPremium && PREMIUM_TAB_IDS.has(tab.id) ? (
+                      <Lock className="w-3.5 h-3.5 shrink-0 opacity-80" />
+                    ) : null}
                     {!sidebarCollapsed && tab.badge ? (
                       <span className="text-[10px] bg-red-500/20 text-red-300 px-1.5 py-0.5 rounded-md">{tab.badge}</span>
                     ) : null}
@@ -1602,9 +1942,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
               {!sidebarCollapsed && <p className="px-3 text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Operations</p>}
               {[
                 { id: 'farms', label: 'Holdings', icon: MapIcon },
-                { id: 'expenses', label: 'Expenses', icon: IndianRupee },
+                ...(!isViewer ? [{ id: 'expenses', label: 'Expenses', icon: IndianRupee }] : []),
                 { id: 'activities', label: 'Daily Logs', icon: ClipboardList },
                 { id: 'pesticides', label: 'Pesticide Logs', icon: Droplets },
+                { id: 'water', label: 'Water Supply', icon: CloudRain },
                 { id: 'todos', label: 'To-do', icon: ListTodo },
                 { id: 'gallery', label: 'Gallery', icon: ImageIcon },
               ].map((tab) => {
@@ -1614,10 +1955,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                   <button
                     key={tab.id}
                     title={sidebarCollapsed ? tab.label : undefined}
-                    onClick={() => {
-                      setActiveTab(tab.id as any);
-                      setSidebarOpen(false);
-                    }}
+                    onClick={() => openPrimaryTab(tab.id)}
                     className={`w-full flex items-center gap-3 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer ${sidebarCollapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'} ${
                       isActive
                         ? 'bg-emerald-600 text-white border border-emerald-400/20'
@@ -1625,7 +1963,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     }`}
                   >
                     <Icon className="w-4 h-4 shrink-0" />
-                    {!sidebarCollapsed && <span>{tab.label}</span>}
+                    {!sidebarCollapsed && <span className="flex-1 text-left">{tab.label}</span>}
+                    {!sidebarCollapsed && !isPremium && PREMIUM_TAB_IDS.has(tab.id) ? (
+                      <Lock className="w-3.5 h-3.5 shrink-0 opacity-80" />
+                    ) : null}
                   </button>
                 );
               })}
@@ -1634,7 +1975,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
               {!sidebarCollapsed && <p className="px-3 text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Account</p>}
               {[
                 { id: 'support', label: 'Help & Support', icon: HelpCircle },
-                { id: 'plans', label: 'Plans', icon: Crown },
+                ...(!isViewer ? [{ id: 'plans', label: 'Plans', icon: Crown }] : []),
                 { id: 'profile', label: 'Identity', icon: UserIcon },
               ].map((tab) => {
                 const Icon = tab.icon;
@@ -1666,9 +2007,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
               {!sidebarCollapsed && (
                 <div className="flex flex-col px-1">
                   <span className="text-sm font-bold text-zinc-800 leading-none mb-1 truncate">{profile?.name}</span>
-                  <span className="text-xs text-zinc-500 truncate">{profile?.email}</span>
-                  <span className={`mt-1 text-[10px] font-bold uppercase tracking-wider ${isPremium ? 'text-emerald-800' : 'text-zinc-500'}`}>
-                    {isPremium ? 'Premium' : 'Free plan'}
+                  <span className="text-xs text-zinc-500 truncate">{isViewer ? `@${profile?.username}` : profile?.email}</span>
+                  <span className={`mt-1 text-[10px] font-bold uppercase tracking-wider ${isViewer ? 'text-emerald-800' : isPremium ? 'text-emerald-800' : 'text-zinc-500'}`}>
+                    {isViewer ? 'Inspector · view only' : isPremium ? 'Premium' : 'Free plan'}
                   </span>
                 </div>
               )}
@@ -1684,6 +2025,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
+        {isViewer && (
+          <div className="shrink-0 px-4 md:px-8 py-2 bg-emerald-50 border-b border-emerald-200 text-xs text-emerald-900 flex items-center gap-2">
+            <Eye className="w-3.5 h-3.5 shrink-0" />
+            <span>
+              Inspecting {profile?.ownerName ? `${profile.ownerName}'s farm` : 'this farm'} as {profile?.name}. You can view records but cannot add, edit, or delete.
+            </span>
+          </div>
+        )}
         <header className="shrink-0 border-b border-zinc-200 bg-white px-4 md:px-8 py-3 flex items-center gap-3">
           <button
             type="button"
@@ -1704,12 +2053,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
               <option key={f.id} value={f.id.toString()}>{f.name}</option>
             ))}
           </select>
+          <div className="min-w-0 flex items-baseline gap-2 overflow-hidden">
+            <p className="text-lg md:text-xl font-bold tracking-tight text-zinc-900 shrink-0">{BRAND_NAME}</p>
+            <p className="text-[11px] md:text-xs text-zinc-500 font-medium italic truncate">{BRAND_TAGLINE}</p>
+          </div>
           <div className="flex-1" />
           <button
             type="button"
             className="relative p-2 rounded-xl border border-zinc-200 text-zinc-600 hover:text-zinc-900"
-            onClick={() => setActiveTab('diseases')}
-            aria-label="Disease alerts"
+            onClick={() => openPrimaryTab('diseases')}
+            aria-label="Detect Disease"
           >
             <Bell className="w-4 h-4" />
             {activeDiseaseCount > 0 && (
@@ -1742,29 +2095,38 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
               <>
                 <div className="flex flex-col lg:flex-row justify-between lg:items-end gap-4">
                   <div>
-                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-zinc-900">Farm analysis</h1>
-                      <p className="text-sm md:text-base text-emerald-900/80 font-medium italic">{BRAND_TAGLINE}</p>
-                    </div>
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-zinc-900">Farm analysis</h1>
                     <p className="text-zinc-500 text-sm mt-1">What is happening across {selectedFarmId ? 'this holding' : 'your holdings'} right now.</p>
                   </div>
-                  <button type="button" onClick={() => setActiveTab('activities')} className="df-btn df-btn-primary">
-                    <Plus className="w-4 h-4" /> Log today&apos;s work
-                  </button>
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      onClick={() => openActivityLog(undefined, false, false, { returnToTab: 'overview' })}
+                      className="df-btn df-btn-primary"
+                    >
+                      <Plus className="w-4 h-4" /> Log work
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => setActiveTab('activities')} className="df-btn df-btn-primary">
+                      View daily logs
+                    </button>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div className={`grid grid-cols-1 sm:grid-cols-2 ${isViewer ? 'xl:grid-cols-3' : 'xl:grid-cols-4'} gap-4`}>
                   {[
                     { label: 'Total acres', value: totalAcres, hint: selectedFarmId ? 'Selected holding' : `${visibleFarms.length} holdings`, icon: Sprout },
                     { label: 'Total plants', value: totalTrees.toLocaleString(), hint: 'Trees and plants on file', icon: Trees },
                     { label: 'Active diseases', value: activeDiseaseCount, hint: `Photo checks above ${HIGH_CONFIDENCE}% confidence`, icon: Bug },
-                    {
-                      label: 'July expenses',
-                      value: `₹${Math.round(julyExpensesActual).toLocaleString()}`,
-                      hint: expenseMom === null ? 'No June ledger to compare' : `vs June recorded spend`,
-                      trend: expenseMom,
-                      icon: IndianRupee,
-                    },
+                    ...(!isViewer
+                      ? [{
+                          label: `${monthLabel} expenses`,
+                          value: `₹${Math.round(monthExpensesActual).toLocaleString()}`,
+                          hint: expenseMom === null ? 'No previous month ledger to compare' : 'vs last month recorded spend',
+                          trend: expenseMom,
+                          icon: IndianRupee,
+                        }]
+                      : []),
                   ].map((stat) => (
                     <div key={stat.label} className="glass-card rounded-2xl p-5 flex items-start justify-between gap-3">
                       <div className="space-y-1.5 min-w-0">
@@ -1788,7 +2150,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                 </div>
 
                 {/* Charts Cockpit */}
-                {expenseTrendChart.length > 0 && (
+                {hasExpenseTrend && !isViewer && (
                   <div className="glass-card rounded-xl border border-zinc-200 p-5 space-y-4">
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-bold text-zinc-800">Expense Trend</span>
@@ -1814,10 +2176,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                   </div>
                 )}
 
+                {rainfallHumidityChart.length === 0 && windTemperatureChart.length === 0 && (
+                  <div className="glass-card rounded-xl border border-zinc-200 p-4 text-sm text-zinc-500">
+                    Save the farm location to load rainfall, humidity, wind, temperature, and the 7-day forecast from Open-Meteo.
+                  </div>
+                )}
+
                 {rainfallHumidityChart.length > 0 && (
                   <div className="glass-card rounded-xl border border-zinc-200 p-5 space-y-4">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-bold text-zinc-800">Rainfall vs Humidity</span>
+                      <div>
+                        <span className="text-sm font-bold text-zinc-800">Rainfall vs Humidity</span>
+                        <p className="text-[10px] text-zinc-500 mt-0.5">Last 7 days at the farm</p>
+                      </div>
                       <div className="flex gap-2 text-xs">
                         <button type="button" onClick={() => setShowRainSeries((v) => !v)} className={`px-2 py-1 rounded-lg border ${showRainSeries ? 'border-sky-500/40 text-sky-700' : 'border-zinc-200 text-zinc-600'}`}>Rainfall</button>
                         <button type="button" onClick={() => setShowHumiditySeries((v) => !v)} className={`px-2 py-1 rounded-lg border ${showHumiditySeries ? 'border-emerald-500/40 text-emerald-800' : 'border-zinc-200 text-zinc-600'}`}>Humidity</button>
@@ -1827,12 +2198,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={rainfallHumidityChart} margin={{ top: 10, right: 18, left: -10, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#e8e2d4" vertical={false} />
-                          <XAxis dataKey="day" stroke="#4b5563" fontSize={10} tickLine={false} interval={2} />
+                          <XAxis dataKey="day" stroke="#4b5563" fontSize={10} tickLine={false} interval={0} />
                           <YAxis yAxisId="rain" stroke="#38bdf8" fontSize={10} tickLine={false} tickFormatter={(v) => `${v}`} />
-                          <YAxis yAxisId="humidity" orientation="right" stroke="#34d399" fontSize={10} tickLine={false} domain={[50, 100]} tickFormatter={(v) => `${v}%`} />
+                          <YAxis yAxisId="humidity" orientation="right" stroke="#34d399" fontSize={10} tickLine={false} tickFormatter={(v) => `${v}%`} />
                           <Tooltip content={<CustomTooltip />} />
-                          {showRainSeries && <Line yAxisId="rain" type="monotone" dataKey="rainfall" name="Rainfall" stroke="#38bdf8" strokeWidth={2} dot={false} />}
-                          {showHumiditySeries && <Line yAxisId="humidity" type="monotone" dataKey="humidity" name="Humidity" stroke="#34d399" strokeWidth={2} dot={false} />}
+                          {showRainSeries && <Line yAxisId="rain" type="monotone" dataKey="rainfall" name="Rainfall" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />}
+                          {showHumiditySeries && <Line yAxisId="humidity" type="monotone" dataKey="humidity" name="Humidity" stroke="#34d399" strokeWidth={2} dot={{ r: 3 }} />}
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
@@ -1846,7 +2217,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                 {windTemperatureChart.length > 0 && (
                   <div className="glass-card rounded-xl border border-zinc-200 p-5 space-y-4">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-bold text-zinc-800">Wind vs Temperature</span>
+                      <div>
+                        <span className="text-sm font-bold text-zinc-800">Wind vs Temperature</span>
+                        <p className="text-[10px] text-zinc-500 mt-0.5">Last 7 days at the farm</p>
+                      </div>
                       <div className="flex gap-2 text-xs">
                         <button type="button" onClick={() => setShowWindSeries((v) => !v)} className={`px-2 py-1 rounded-lg border ${showWindSeries ? 'border-sky-500/40 text-sky-700' : 'border-zinc-200 text-zinc-600'}`}>Wind</button>
                         <button type="button" onClick={() => setShowTempSeries((v) => !v)} className={`px-2 py-1 rounded-lg border ${showTempSeries ? 'border-amber-500/40 text-amber-700' : 'border-zinc-200 text-zinc-600'}`}>Temperature</button>
@@ -1856,12 +2230,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={windTemperatureChart} margin={{ top: 10, right: 18, left: -10, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#e8e2d4" vertical={false} />
-                          <XAxis dataKey="day" stroke="#4b5563" fontSize={10} tickLine={false} interval={2} />
+                          <XAxis dataKey="day" stroke="#4b5563" fontSize={10} tickLine={false} interval={0} />
                           <YAxis yAxisId="wind" stroke="#0ea5e9" fontSize={10} tickLine={false} tickFormatter={(v) => `${v}`} />
-                          <YAxis yAxisId="temp" orientation="right" stroke="#d97706" fontSize={10} tickLine={false} domain={[18, 34]} tickFormatter={(v) => `${v}°`} />
+                          <YAxis yAxisId="temp" orientation="right" stroke="#d97706" fontSize={10} tickLine={false} tickFormatter={(v) => `${v}°`} />
                           <Tooltip content={<CustomTooltip />} />
-                          {showWindSeries && <Line yAxisId="wind" type="monotone" dataKey="wind" name="Wind" stroke="#0ea5e9" strokeWidth={2} dot={false} />}
-                          {showTempSeries && <Line yAxisId="temp" type="monotone" dataKey="temp" name="Temperature" stroke="#d97706" strokeWidth={2} dot={false} />}
+                          {showWindSeries && <Line yAxisId="wind" type="monotone" dataKey="wind" name="Wind" stroke="#0ea5e9" strokeWidth={2} dot={{ r: 3 }} />}
+                          {showTempSeries && <Line yAxisId="temp" type="monotone" dataKey="temp" name="Temperature" stroke="#d97706" strokeWidth={2} dot={{ r: 3 }} />}
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
@@ -1872,18 +2246,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                   </div>
                 )}
 
-                <PremiumGate locked={!isPremium} onUpgrade={goToPlans} title="Weather outbreak risk is Premium">
-                <WeatherOutbreakRisk
-                  token={token}
-                  defaults={{
-                    rainfall_mm: rainfallHumidityChart.length
-                      ? Number(rainfallHumidityChart[rainfallHumidityChart.length - 1].rainfall)
-                      : undefined,
-                    humidity: dashboardData?.weather?.humidity,
-                    temperature: dashboardData?.weather?.temp,
-                  }}
-                />
+                <PremiumGate locked={!isPremium} onUpgrade={goToPlans} title="Pomegranate bacterial blight risk is Premium">
+                  <PomegranateBacterialBlightRisk
+                    token={token}
+                    farmId={riskFarm?.id}
+                    hasLocation={riskFarm ? hasFarmCoordinates(riskFarm) : false}
+                    farmName={riskFarm?.name}
+                  />
                 </PremiumGate>
+
+                {weatherForecast.length > 0 && (
+                  <div className="glass-card rounded-xl border border-zinc-200 p-4">
+                    <div className="flex items-baseline justify-between gap-3 mb-3">
+                      <span className="text-sm font-bold text-zinc-800">7-day forecast</span>
+                      <span className="text-[10px] text-zinc-500">From the farm location · Open-Meteo</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-2">
+                      {weatherForecast.map((day: any) => (
+                        <div key={day.date} className="rounded-lg border border-zinc-200 bg-[#fbfaf6] px-2.5 py-2 text-center">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{day.weekday}</p>
+                          <p className="text-sm font-bold text-zinc-900 mt-1">
+                            {day.tMax != null ? Math.round(day.tMax) : '—'}°
+                            <span className="text-zinc-400 font-medium"> / {day.tMin != null ? Math.round(day.tMin) : '—'}°</span>
+                          </p>
+                          <p className="text-[10px] text-zinc-600 mt-0.5 truncate">{day.condition}</p>
+                          <p className="text-[10px] text-sky-700 mt-1">{day.rain != null ? `${Number(day.rain).toFixed(1)} mm` : '—'}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="glass-card rounded-2xl p-5 space-y-3">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1910,17 +2302,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                         type="button"
                         className="df-btn df-btn-primary text-xs"
                         onClick={() => {
-                          if (!isPremium) {
-                            goToPlans();
-                            return;
-                          }
-                          setReportError(null);
-                          setReportFile(null);
-                          setReportTitle('');
-                          setReportNotes('');
-                          setReportCategory('soil');
-                          setReportFarmId(farms[0]?.id?.toString() || '');
-                          setIsReportModalOpen(true);
+                          openReportUpload();
                         }}
                       >
                         <Upload className="w-3.5 h-3.5" /> Upload PDF
@@ -2025,26 +2407,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                         {getWeatherIcon(dashboardData.weather.condition)}
                       </div>
 
-                      <div className="my-auto py-2">
+                      <div>
                         <div className="flex items-baseline gap-2">
-                          <span className="text-5xl font-extrabold text-zinc-900 tracking-tight">{dashboardData.weather.temp}°</span>
+                          <span className="text-5xl font-extrabold text-zinc-900 tracking-tight">{dashboardData.weather.temp ?? '—'}°</span>
                           <span className="text-zinc-450 text-sm font-medium">{dashboardData.weather.condition}</span>
                         </div>
+                        <p className="text-[10px] text-zinc-400 mt-1">
+                          {dashboardData.weather.slot === 'evening' ? 'Evening 6:00 PM' : 'Morning 10:00 AM'} IST snapshot
+                        </p>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4 pt-4 border-t border-zinc-200">
+                      <div className="grid grid-cols-3 gap-3 pt-4 border-t border-zinc-200">
                         <div className="flex items-center gap-2">
                           <Droplets className="w-4 h-4 text-emerald-400" />
                           <div className="flex flex-col">
                             <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Humidity</span>
-                            <span className="text-xs font-semibold text-zinc-800">{dashboardData.weather.humidity}%</span>
+                            <span className="text-xs font-semibold text-zinc-800">{dashboardData.weather.humidity ?? '—'}%</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Wind className="w-4 h-4 text-sky-400" />
                           <div className="flex flex-col">
-                            <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Wind Speed</span>
-                            <span className="text-xs font-semibold text-zinc-800">{dashboardData.weather.wind} km/h</span>
+                            <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Wind</span>
+                            <span className="text-xs font-semibold text-zinc-800">{dashboardData.weather.wind ?? '—'} km/h</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CloudRain className="w-4 h-4 text-sky-500" />
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Rain</span>
+                            <span className="text-xs font-semibold text-zinc-800">{dashboardData.weather.rainfall ?? '—'} mm</span>
                           </div>
                         </div>
                       </div>
@@ -2207,6 +2599,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Registered Holdings</h1>
                     <p className="text-zinc-500 text-sm font-medium mt-1">Manage and inspect physical holdings parameters.</p>
                   </div>
+                  {canEdit && (
                   <button
                     onClick={() => {
                       if (farms.length >= 1 && !isPremium) {
@@ -2224,7 +2617,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                       setFormLocationLabel('');
                       setFormLatitude('');
                       setFormLongitude('');
+                      setFormPlaceMatches([]);
                       setFormError(null);
+                      try {
+                        const pendingRaw = localStorage.getItem(PENDING_FARM_LOCATION_KEY);
+                        if (pendingRaw) {
+                          const pending = JSON.parse(pendingRaw);
+                          if (pending.locationLabel) setFormLocationLabel(pending.locationLabel);
+                          if (pending.latitude != null) setFormLatitude(String(pending.latitude));
+                          if (pending.longitude != null) setFormLongitude(String(pending.longitude));
+                        }
+                      } catch {
+                        // ignore stored location
+                      }
                       setIsModalOpen(true);
                     }}
                     className="df-btn df-btn-primary"
@@ -2232,6 +2637,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     <Plus className="w-4 h-4" />
                     <span>Register Farm</span>
                   </button>
+                  )}
                 </div>
 
                 {farms.length === 0 ? (
@@ -2241,12 +2647,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     </div>
                     <h3 className="text-base font-bold text-zinc-900">No registered holdings found</h3>
                     <p className="text-sm text-zinc-500 mt-1 max-w-[320px] mx-auto">Create and structure your first crop holding boundary parameters.</p>
+                    {canEdit && (
                     <button
                       onClick={() => setIsModalOpen(true)}
                       className="mt-4 df-btn df-btn-primary"
                     >
                       Create Farm Holding
                     </button>
+                    )}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -2288,6 +2696,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                             <span className="text-[9px] text-zinc-500 uppercase font-bold tracking-wider">Season Commenced</span>
                             <span className="text-xs font-semibold text-zinc-400 mt-0.5">{new Date(farm.cropSeasonStartTime).toLocaleDateString()}</span>
                           </div>
+                          {canEdit && (
                           <div className="flex gap-2">
                             <button
                               onClick={() => {
@@ -2315,6 +2724,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -2331,6 +2741,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Expenses</h1>
                     <p className="text-zinc-500 text-sm font-medium mt-1">Audit, register, and compile operational expenditure parameters.</p>
                   </div>
+                  {canEdit && (
                   <button
                     onClick={() => {
                       setEditingExpense(null);
@@ -2346,6 +2757,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     <Plus className="w-4 h-4" />
                     <span>Add expense</span>
                   </button>
+                  )}
                 </div>
 
                 {/* Filter Ledger */}
@@ -2382,10 +2794,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                 </div>
 
                 {filteredExpenses.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="glass-card rounded-xl p-4"><p className="text-[10px] uppercase text-zinc-500 font-bold">Shown total</p><p className="text-lg font-bold">₹{filteredExpenses.reduce((s, e) => s + Number(e.amount), 0).toLocaleString()}</p></div>
-                    <div className="glass-card rounded-xl p-4"><p className="text-[10px] uppercase text-zinc-500 font-bold">Average</p><p className="text-lg font-bold">₹{Math.round(expenseAverage).toLocaleString()}</p></div>
-                    <div className="glass-card rounded-xl p-4"><p className="text-[10px] uppercase text-zinc-500 font-bold">Highest</p><p className="text-lg font-bold">₹{expenseHighest.toLocaleString()}</p></div>
+                  <div className="glass-card rounded-xl p-4">
+                    <p className="text-[10px] uppercase text-zinc-500 font-bold">Shown total</p>
+                    <p className="text-lg font-bold">₹{filteredExpenses.reduce((s, e) => s + Number(e.amount), 0).toLocaleString()}</p>
                   </div>
                 )}
                 {categoryBreakdown.length > 0 && (
@@ -2457,6 +2868,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                             <td className="p-4 text-zinc-400 max-w-[200px] truncate">{exp.notes || <em className="text-zinc-650">No notes</em>}</td>
                             <td className="p-4 font-bold text-zinc-900">₹{Number(exp.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                             <td className="p-4 text-right">
+                              {canEdit && (
                               <div className="inline-flex gap-2">
                                 <button
                                   onClick={() => {
@@ -2479,6 +2891,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               </div>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -2497,13 +2910,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Daily Operations</h1>
                     <p className="text-zinc-500 text-sm font-medium mt-1">Audit task assignments, spraying protocols, yields, and structures.</p>
                   </div>
+                  {canEdit && (
                   <button
                     onClick={() => openActivityLog()}
                     className="df-btn df-btn-primary"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Log Operation</span>
+                    <span>Log work</span>
                   </button>
+                  )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 bg-[#f7f4ec] p-4 rounded-xl border border-zinc-200">
@@ -2607,8 +3022,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                   <div>
                     <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Pesticide Logs</h1>
-                    <p className="text-zinc-500 text-sm font-medium mt-1">Record sprays the same way as daily logs: date, holding, product, quantity, and notes.</p>
+                    <p className="text-zinc-500 text-sm font-medium mt-1">Record the pesticide name, quantity, and spray time. Date is saved automatically.</p>
                   </div>
+                  {canEdit && (
                   <button
                     onClick={() => openActivityLog(undefined, true)}
                     className="df-btn df-btn-primary"
@@ -2616,6 +3032,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     <Plus className="w-4 h-4" />
                     <span>Log Spray</span>
                   </button>
+                  )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 bg-[#f7f4ec] p-4 rounded-xl border border-zinc-200">
@@ -2624,7 +3041,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     <input
                       type="text"
                       className="w-full bg-white border border-zinc-200 focus:border-zinc-200 rounded-lg py-2 pl-10 pr-4 text-xs text-zinc-800 placeholder-zinc-600 outline-none"
-                      placeholder="Search pesticide name, quantity, or notes..."
+                      placeholder="Search pesticide name, quantity, or time..."
                       value={pesticideSearch}
                       onChange={(e) => setPesticideSearch(e.target.value)}
                     />
@@ -2649,10 +3066,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                       <Droplets className="w-6 h-6 text-zinc-500" />
                     </div>
                     <h3 className="text-base font-bold text-zinc-900">No pesticide logs yet</h3>
-                    <p className="text-sm text-zinc-500 mt-1 max-w-[360px] mx-auto">Log a spray with product name, quantity, time of day, and which holding it was applied on.</p>
+                    <p className="text-sm text-zinc-500 mt-1 max-w-[360px] mx-auto">Log a spray with pesticide name, quantity, and time. Date is recorded automatically.</p>
+                    {canEdit && (
                     <button type="button" onClick={() => openActivityLog(undefined, true)} className="mt-4 df-btn df-btn-primary">
                       <Plus className="w-4 h-4" /> Log Spray
                     </button>
+                    )}
                   </div>
                 ) : (
                   <div className="relative border-l border-zinc-200 pl-6 ml-3 space-y-6">
@@ -2685,12 +3104,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                               </button>
                             </div>
                           </div>
-                          <div className="grid grid-cols-3 gap-2 p-3 bg-[#f7f4ec] border border-zinc-200 rounded-lg text-xs mb-3">
+                          <div className="grid grid-cols-3 gap-2 p-3 bg-[#f7f4ec] border border-zinc-200 rounded-lg text-xs">
                             <div><span className="text-zinc-500">Name:</span> <strong className="text-zinc-800">{act.pesticideName || '—'}</strong></div>
                             <div><span className="text-zinc-500">Qty:</span> <strong className="text-zinc-800">{act.pesticideQuantity || '—'}</strong></div>
                             <div><span className="text-zinc-500">Time:</span> <strong className="text-zinc-800">{act.pesticideTime || '—'}</strong></div>
                           </div>
-                          {act.notes ? <p className="text-sm text-zinc-800 whitespace-pre-wrap leading-relaxed">{act.notes}</p> : null}
                         </div>
                       </div>
                     ))}
@@ -2698,6 +3116,98 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                 )}
               </>
               </PremiumGate>
+            )}
+
+            {activeTab === 'water' && (
+              <>
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                  <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Water Supply</h1>
+                    <p className="text-zinc-500 text-sm font-medium mt-1">Log how many hours of water were supplied to each holding.</p>
+                  </div>
+                  {canEdit && (
+                  <button
+                    onClick={() => openActivityLog(undefined, false, true)}
+                    className="df-btn df-btn-primary"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Log water supply</span>
+                  </button>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 bg-[#f7f4ec] p-4 rounded-xl border border-zinc-200">
+                  <div className="w-full sm:w-[280px]">
+                    <select
+                      className="w-full bg-white border border-zinc-200 focus:border-zinc-200 rounded-lg py-2 px-3 text-xs text-zinc-800 outline-none"
+                      value={waterFilterFarmId}
+                      onChange={(e) => setWaterFilterFarmId(e.target.value)}
+                    >
+                      <option value="">All Farms</option>
+                      {farms.map((f) => (
+                        <option key={f.id} value={f.id.toString()}>{f.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {filteredWaterLogs.length === 0 ? (
+                  <div className="glass-card border border-zinc-200 rounded-2xl p-12 text-center flex flex-col items-center justify-center">
+                    <div className="w-12 h-12 rounded-xl bg-[#f7f4ec] border border-zinc-200 flex items-center justify-center mb-4">
+                      <CloudRain className="w-6 h-6 text-zinc-500" />
+                    </div>
+                    <h3 className="text-base font-bold text-zinc-900">No water supply logs yet</h3>
+                    <p className="text-sm text-zinc-500 mt-1 max-w-[360px] mx-auto">Choose a holding and enter how many hours of water were supplied that day.</p>
+                    {canEdit && (
+                    <button type="button" onClick={() => openActivityLog(undefined, false, true)} className="mt-4 df-btn df-btn-primary">
+                      <Plus className="w-4 h-4" /> Log water supply
+                    </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="relative border-l border-zinc-200 pl-6 ml-3 space-y-6">
+                    {filteredWaterLogs.map((act) => (
+                      <div key={act.id} className="relative group">
+                        <div className="absolute -left-[31px] top-1.5 w-2.5 h-2.5 rounded-full bg-sky-600 border-2 border-white group-hover:bg-sky-700 transition-colors duration-150" />
+                        <div className="glass-card border border-zinc-200 rounded-xl p-5">
+                          <div className="flex justify-between items-start gap-4 mb-3">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2.5 flex-wrap">
+                                <span className="text-xs font-bold px-2 py-0.5 rounded border bg-sky-500/10 text-sky-800 border-sky-500/20">
+                                  Water Supply
+                                </span>
+                                <span className="text-xs text-zinc-500 font-semibold">{act.farm?.name}</span>
+                              </div>
+                              <span className="text-[10px] text-zinc-600 block">{new Date(act.date).toLocaleDateString()}</span>
+                            </div>
+                            {canEdit && (
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => openActivityLog(act, false, true)}
+                                className="p-1.5 rounded bg-[#f7f4ec] border border-zinc-200 text-zinc-400 hover:text-zinc-900 cursor-pointer"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteActivity(act.id)}
+                                className="p-1.5 rounded bg-white border border-zinc-200 text-zinc-400 hover:text-red-500 cursor-pointer"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                            )}
+                          </div>
+                          <div className="inline-flex items-baseline gap-2 rounded-lg border border-zinc-200 bg-[#f7f4ec] px-3 py-2">
+                            <span className="text-2xl font-bold text-zinc-900">{Number(act.waterHours ?? 0)}</span>
+                            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">hours</span>
+                          </div>
+                          {act.notes ? <p className="text-sm text-zinc-600 mt-3 leading-relaxed">{act.notes}</p> : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
 
             {activeTab === 'todos' && (
@@ -2712,6 +3222,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                   </span>
                 </div>
 
+                {canEdit && (
                 <form onSubmit={handleAddTodo} className="glass-card rounded-xl border border-zinc-200 p-5 space-y-3">
                   <input
                     className="df-input w-full"
@@ -2749,8 +3260,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     </button>
                   </div>
                 </form>
-
-                {openTodos.length === 0 && doneTodos.length === 0 ? (
+                )}
+                {todos.length === 0 ? (
                   <div className="glass-card border border-zinc-200 rounded-2xl p-12 text-center flex flex-col items-center justify-center">
                     <div className="w-12 h-12 rounded-xl bg-[#f7f4ec] border border-zinc-200 flex items-center justify-center mb-4">
                       <ListTodo className="w-6 h-6 text-zinc-500" />
@@ -2837,12 +3348,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
             {/* GALLERY TAB */}
             {activeTab === 'gallery' && (
+              <PremiumGate locked={!isPremium} onUpgrade={goToPlans} title="Gallery is Premium">
               <>
                 <div className="flex justify-between items-center">
                   <div>
                     <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Gallery</h1>
-                    <p className="text-zinc-500 text-sm font-medium mt-1">Farm photos. Send any of them to disease check without re-uploading.</p>
+                    <p className="text-zinc-500 text-sm font-medium mt-1">Farm photos from the field. Run Detect disease on any fruit photo.</p>
                   </div>
+                  {canEdit && (
                   <button
                     onClick={() => {
                       setSelectedFile(null);
@@ -2856,6 +3369,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     <Camera className="w-4 h-4" />
                     <span>Upload Image</span>
                   </button>
+                  )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 bg-[#f7f4ec] p-4 rounded-xl border border-zinc-200">
@@ -2879,7 +3393,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                       <ImageIcon className="w-6 h-6 text-zinc-500" />
                     </div>
                     <h3 className="text-base font-bold text-zinc-900">No photos yet</h3>
-                    <p className="text-sm text-zinc-500 mt-1 max-w-[320px] mx-auto">Upload a field photo, then you can send it to disease check from here.</p>
+                    <p className="text-sm text-zinc-500 mt-1 max-w-[320px] mx-auto">Upload a field photo to keep a record of the orchard.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -2911,22 +3425,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                           </div>
                         </div>
                         </button>
-                        <div className="px-4 pb-4 flex gap-2">
+                        <div className="px-4 pb-4 flex flex-wrap gap-2">
                           <button
                             type="button"
-                            onClick={() => {
-                              setPendingGalleryAnalyze({
-                                id: img.id,
-                                filename: img.filename,
-                                caption: img.caption,
-                                farmId: img.farm?.id,
-                              });
-                              setActiveTab('diseases');
-                            }}
-                            className="df-btn df-btn-primary flex-1 text-xs"
+                            onClick={(e) => handleDetectGalleryDisease(img, e)}
+                            disabled={analyzingGalleryId === img.id}
+                            className="df-btn df-btn-ghost px-3"
+                            aria-label="Detect disease"
                           >
-                            Check for disease
+                            <Bug className="w-3.5 h-3.5" />
+                            <span>{analyzingGalleryId === img.id ? 'Detecting…' : 'Detect disease'}</span>
                           </button>
+                          {canEdit && (
                           <button
                             type="button"
                             onClick={(e) => handleDeleteImage(img.id, e)}
@@ -2935,22 +3445,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
               </>
+              </PremiumGate>
             )}
 
             {/* DISEASES TAB */}
             {activeTab === 'diseases' && (
+              <PremiumGate locked={!isPremium} onUpgrade={goToPlans} title="Detect Disease is Premium">
               <>
                 <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
                   <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Diseases</h1>
-                    <p className="text-zinc-500 text-sm font-medium mt-1">Check a photo first. Log an outbreak only when you already know what you saw in the field.</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Detect Disease</h1>
+                    <p className="text-zinc-500 text-sm font-medium mt-1">Upload a pomegranate fruit photo for AI disease detection, or log an outbreak by hand.</p>
                   </div>
+                  {canEdit && (
                   <button
                     onClick={openDiseaseModal}
                     className="df-btn df-btn-ghost"
@@ -2958,22 +3472,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     <Plus className="w-4 h-4" />
                     <span>Log outbreak by hand</span>
                   </button>
+                  )}
                 </div>
 
-                <PremiumGate locked={!isPremium} onUpgrade={goToPlans} title="Photo disease analysis is Premium">
                 <DiseasePredictor
-                  token={token}
                   farms={farms}
-                  galleryImages={galleryImages.map((img) => ({
-                    id: img.id,
-                    filename: img.filename,
-                    caption: img.caption,
-                    farmId: img.farm?.id,
-                  }))}
-                  pendingGallery={pendingGalleryAnalyze}
-                  onAnalyzed={refreshPredictions}
+                  token={token}
+                  canEdit
+                  onResult={() => {
+                    void (async () => {
+                      const res = await fetch(`/api/disease-management/predictions`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                      });
+                      if (res.ok) setVisionPredictions(await res.json());
+                    })();
+                  }}
                 />
-                </PremiumGate>
 
                 <div className="space-y-3">
                   <div className="flex items-end justify-between gap-3">
@@ -2987,7 +3501,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                   </div>
                   {highConfidencePredictions.length === 0 ? (
                     <div className="glass-card border border-zinc-200 rounded-2xl p-8 text-center">
-                      <p className="text-sm text-zinc-500">No photo check has passed {HIGH_CONFIDENCE}% confidence yet. Analyze a leaf or fruit above.</p>
+                      <p className="text-sm text-zinc-500">No photo check has passed {HIGH_CONFIDENCE}% confidence yet.</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -3002,7 +3516,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                           </div>
                           <div className="p-3 space-y-1">
                             <p className="text-sm font-bold text-zinc-900 truncate">{formatPredictedDisease(row.predictedDisease)}</p>
-                            <p className="text-[11px] font-semibold text-emerald-800">{Number(row.confidence).toFixed(1)}% confidence</p>
+                            <p className="text-[11px] font-semibold text-emerald-800">
+                              {Number(row.confidence).toFixed(1)}% confidence
+                              {row.severity ? ` · ${row.severity}` : ''}
+                            </p>
                             <p className="text-[10px] text-zinc-500">
                               {row.plantPart}
                               {row.farm?.name ? ` · ${row.farm.name}` : ''}
@@ -3042,7 +3559,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                       <Bug className="w-6 h-6 text-zinc-500" />
                     </div>
                     <h3 className="text-base font-bold text-zinc-900">No outbreaks logged yet</h3>
-                    <p className="text-sm text-zinc-500 mt-1 max-w-[320px] mx-auto">Use photo check above, or log an outbreak by hand if you already identified it in the field.</p>
+                    <p className="text-sm text-zinc-500 mt-1 max-w-[320px] mx-auto">Log an outbreak by hand if you already identified it in the field.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -3105,6 +3622,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                   </div>
                 )}
               </>
+              </PremiumGate>
             )}
 
             {/* HELP & SUPPORT TAB */}
@@ -3118,13 +3636,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                 <div className="glass-card rounded-2xl p-5 space-y-2">
                   <h3 className="text-sm font-bold text-zinc-900 mb-3">Getting started</h3>
                   {[
-                    { q: 'What is included in Premium?', a: 'Premium is ₹3,000 per year. It adds unlimited holdings, photo disease analysis, weather outbreak risk, pesticide logs, lab PDFs, gallery photo check, and the AI assistant. Open Plans in the sidebar to see the full list and start Premium.' },
+                    { q: 'What is included in Premium?', a: 'Premium is ₹5,000 per year. It unlocks Detect Disease, Gallery, Pesticide Logs, the AI assistant, inspector (view-only) logins, unlimited holdings, and lab PDFs. Open Plans in the sidebar to upgrade.' },
                     { q: 'How do I write upcoming work?', a: 'Open To-do, type the job, optionally set a due date and farm, then Add. Tick the box when it is done.' },
-                    { q: 'How do I log a pesticide spray?', a: 'Open Pesticide Logs, then Log Spray. Enter the product, quantity, time of day, holding, and notes. You can edit or delete a spray the same way as a daily log.' },
+                    { q: 'How do I log a pesticide spray?', a: 'Open Pesticide Logs, then Log Spray. Enter the pesticide name, quantity, and spray time. The date is saved automatically.' },
                     { q: 'How do I upload soil or pH reports?', a: 'On Analysis, open Reports, choose Upload PDF, pick Soil fertility or pH, then add the file. Click the report or Open PDF to view it.' },
-                    { q: 'How do I check a leaf or fruit for disease?', a: 'Open Diseases, choose Leaf or Fruit, add a photo or pick one from Gallery, then Analyze. If confidence is above 85% and it is not healthy, the result is added to High-confidence detections and counted under Active diseases on Analysis.' },
+                    { q: 'How do I check a leaf or fruit for disease?', a: 'Open Detect Disease to upload a fruit photo, or open Gallery and tap Detect disease on an existing photo. You get disease class, confidence, severity, and a Grad-CAM++ heatmap. Treatment recommendations will be added later.' },
                     { q: 'Where do expenses show on Analysis?', a: 'July totals come from your expense ledger. Trends use dashboard chart data from the API.' },
-                    { q: 'How is disease severity decided?', a: 'For logged outbreaks, it is inferred from temperature, humidity, and rainfall stored with the record. Photo analysis uses a separate image model.' },
+                    { q: 'How is disease severity decided?', a: 'For logged outbreaks, it is inferred from temperature, humidity, and rainfall stored with the record.' },
                     { q: 'Photos are not loading', a: 'Confirm the backend is running and files exist under backend/uploads. Gallery images are served from /uploads.' },
                     { q: 'Who can I contact?', a: 'Use the ticket form here, email darurugirish@gmail.com, or call +91 93911 77307 on weekdays.' },
                   ].map((item, idx) => (
@@ -3190,7 +3708,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     </div>
                   </div>
 
-                  {/* Submission inquiry form */}
+                  {canEdit && (
                   <div className="lg:col-span-2 space-y-6">
                     <div className="glass-card rounded-xl border border-zinc-200 p-6 space-y-6">
                       <h3 className="text-base font-bold text-zinc-900 border-b border-zinc-200 pb-3">Submit support ticket</h3>
@@ -3276,6 +3794,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                       </div>
                     )}
                   </div>
+                  )}
                 </div>
               </>
             )}
@@ -3329,19 +3848,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                       <p className="text-sm font-semibold text-zinc-800 mt-1">{profile?.name}</p>
                     </div>
                     <div>
-                      <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider">Email Address</span>
-                      <p className="text-sm font-semibold text-zinc-800 mt-1">{profile?.email}</p>
+                      <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider">{isViewer ? 'Sign-in identity' : 'Email Address'}</span>
+                      <p className="text-sm font-semibold text-zinc-800 mt-1">
+                        {isViewer ? `@${profile?.username} or ${profile?.name}` : profile?.email}
+                      </p>
+                      {isViewer && (
+                        <p className="text-[11px] text-zinc-500 mt-1">Use either value on the login page under Inspector (view only).</p>
+                      )}
                     </div>
                     <div>
                       <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider">Plan</span>
                       <p className="text-sm font-semibold text-zinc-800 mt-1">
-                        {isPremium
+                        {isViewer
+                          ? `Viewing ${profile?.ownerName || 'owner'} farm · ${isPremium ? 'Premium' : 'Free'}`
+                          : isPremium
                           ? `Premium${profile?.premiumUntil ? ` until ${new Date(profile.premiumUntil).toLocaleDateString()}` : ''}`
                           : 'Free'}
                       </p>
-                      {!isPremium && (
+                      {!isPremium && canEdit && (
                         <button type="button" className="text-xs font-semibold text-emerald-800 mt-1" onClick={goToPlans}>
-                          Upgrade to Premium · ₹3,000/year
+                          Upgrade to Premium · ₹5,000/year
                         </button>
                       )}
                     </div>
@@ -3358,10 +3884,97 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                   <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-xl flex items-start gap-3 text-xs leading-normal text-zinc-400">
                     <Shield className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
                     <p>
-                      Your password is stored hashed on the server and is not shown in this app. Sign out on shared devices.
+                      {isViewer
+                        ? 'This inspector login can review farm records. It cannot add, edit, or delete anything.'
+                        : 'Your password is stored hashed on the server and is not shown in this app. Sign out on shared devices.'}
                     </p>
                   </div>
                 </div>
+
+                {canEdit && (
+                <PremiumGate locked={!isPremium} onUpgrade={goToPlans} title="Inspector logins are Premium">
+                <div className="glass-card border border-zinc-200 rounded-2xl p-6 max-w-2xl space-y-4">
+                  <div>
+                    <h2 className="text-base font-bold text-zinc-900">Inspector logins</h2>
+                    <p className="text-xs text-zinc-500 mt-1">Create a username and password for a doctor or agronomist. They sign in on the login page under Inspector (view only), using their username or display name.</p>
+                  </div>
+                  <form
+                    className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (denyIfViewer()) return;
+                      setViewerSaving(true);
+                      try {
+                        const response = await fetch('/api/auth/viewers', {
+                          method: 'POST',
+                          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            name: viewerName,
+                            username: viewerUsername || viewerName,
+                            password: viewerPassword,
+                          }),
+                        });
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok) {
+                          const message = Array.isArray(data.message) ? data.message.join(' ') : data.message;
+                          throw new Error(message || 'Could not create inspector login.');
+                        }
+                        toast.success(`Inspector login created: ${data.username}`);
+                        setViewerName('');
+                        setViewerUsername('');
+                        setViewerPassword('');
+                        setViewers((prev) => [data, ...prev]);
+                      } catch (err: any) {
+                        toast.error(err.message || 'Could not create inspector login.');
+                      } finally {
+                        setViewerSaving(false);
+                      }
+                    }}
+                  >
+                    <input className="df-input" placeholder="Display name, e.g. Bun" value={viewerName} onChange={(e) => setViewerName(e.target.value)} required />
+                    <input className="df-input" placeholder="Login username (optional, e.g. bun)" value={viewerUsername} onChange={(e) => setViewerUsername(e.target.value)} />
+                    <input className="df-input sm:col-span-2" type="password" placeholder="Password (min 6 characters)" value={viewerPassword} onChange={(e) => setViewerPassword(e.target.value)} required minLength={6} />
+                    <button type="submit" disabled={viewerSaving} className="df-btn df-btn-primary sm:col-span-2">
+                      {viewerSaving ? 'Creating…' : 'Create inspector login'}
+                    </button>
+                  </form>
+                  <div className="space-y-2">
+                    {viewers.length === 0 ? (
+                      <p className="text-xs text-zinc-500">No inspector logins yet.</p>
+                    ) : (
+                      viewers.map((viewer) => (
+                        <div key={viewer.id} className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-zinc-900 truncate">{viewer.name}</p>
+                            <p className="text-[11px] text-zinc-500">@{viewer.username}</p>
+                          </div>
+                          <button
+                            type="button"
+                            className="p-1.5 text-zinc-400 hover:text-red-600"
+                            aria-label={`Remove ${viewer.username}`}
+                            onClick={async () => {
+                              if (denyIfViewer()) return;
+                              const response = await fetch(`/api/auth/viewers/${viewer.id}`, {
+                                method: 'DELETE',
+                                headers: { Authorization: `Bearer ${token}` },
+                              });
+                              if (!response.ok) {
+                                toast.error('Could not remove this inspector login.');
+                                return;
+                              }
+                              setViewers((prev) => prev.filter((row) => row.id !== viewer.id));
+                              toast.success('Inspector login removed');
+                            }}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+                </PremiumGate>
+                )}
               </>
             )}
 
@@ -3575,14 +4188,48 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Map location (for weather APIs)</label>
-                <input
-                  type="text"
-                  className="w-full bg-white border border-zinc-200 focus:border-emerald-700 rounded-lg py-2.5 px-3.5 text-sm text-zinc-800 placeholder-zinc-400 outline-none"
-                  placeholder="E.g., Mysuru, Karnataka"
-                  value={formLocationLabel}
-                  onChange={(e) => setFormLocationLabel(e.target.value)}
-                />
+                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Farm location (required)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    className="flex-1 bg-white border border-zinc-200 focus:border-emerald-700 rounded-lg py-2.5 px-3.5 text-sm text-zinc-800 placeholder-zinc-400 outline-none"
+                    placeholder="E.g., Mysuru, Karnataka"
+                    value={formLocationLabel}
+                    onChange={(e) => setFormLocationLabel(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        searchFormPlaces();
+                      }
+                    }}
+                    required
+                  />
+                  <button type="button" onClick={searchFormPlaces} disabled={formPlaceSearching} className="df-btn df-btn-primary text-xs shrink-0">
+                    {formPlaceSearching ? 'Searching…' : 'Find'}
+                  </button>
+                </div>
+                {formPlaceMatches.length > 1 && (
+                  <div className="space-y-1.5">
+                    {formPlaceMatches.map((place) => (
+                      <button
+                        key={place.id}
+                        type="button"
+                        onClick={() => applyPlaceToForm(place)}
+                        className={`w-full text-left text-xs px-3 py-2 rounded-lg border ${
+                          formLatitude === String(place.latitude)
+                            ? 'border-emerald-700 bg-emerald-50 text-zinc-900'
+                            : 'border-zinc-200 bg-white text-zinc-700 hover:bg-[#f7f4ec]'
+                        }`}
+                      >
+                        {placeLabel(place)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <button type="button" onClick={useFormDeviceLocation} disabled={formLocating} className="df-btn df-btn-ghost w-full text-xs">
+                  <Locate className="w-4 h-4" />
+                  {formLocating ? 'Locating…' : 'Use my current location'}
+                </button>
                 <div className="grid grid-cols-2 gap-3">
                   <input
                     type="number"
@@ -3591,6 +4238,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     placeholder="Latitude"
                     value={formLatitude}
                     onChange={(e) => setFormLatitude(e.target.value)}
+                    required
                   />
                   <input
                     type="number"
@@ -3599,6 +4247,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                     placeholder="Longitude"
                     value={formLongitude}
                     onChange={(e) => setFormLongitude(e.target.value)}
+                    required
                   />
                 </div>
               </div>
@@ -3735,21 +4384,54 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
 
       {/* ACTIVITY MODAL */}
       {isActivityModalOpen && (
-        <div className="modal-backdrop fixed inset-0 z-50 bg-[#000]/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-panel w-full max-w-[460px] rounded-2xl border-gradient shadow-2xl p-6 relative">
-            <button onClick={() => { setIsActivityModalOpen(false); setLoggingPesticide(false); }} className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-900 cursor-pointer"><X className="w-5 h-5" /></button>
-            <h2 className="text-lg font-bold text-zinc-900 mb-5">
+        <div
+          className="modal-backdrop fixed inset-0 z-50 bg-[#000]/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !formActSubmitting) closeActivityModal();
+          }}
+          role="presentation"
+        >
+          <div className="glass-panel w-full max-w-[460px] rounded-2xl border-gradient shadow-2xl p-6 relative" role="dialog" aria-modal="true" aria-label="Log work">
+            <div className="flex items-center justify-between gap-3 mb-5">
+              <button
+                type="button"
+                onClick={closeActivityModal}
+                disabled={formActSubmitting}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-600 hover:text-zinc-900 cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={closeActivityModal}
+                disabled={formActSubmitting}
+                className="text-zinc-500 hover:text-zinc-900 cursor-pointer"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <h2 className="text-lg font-bold text-zinc-900 mb-1">
               {editingActivity
-                ? (loggingPesticide ? 'Revise pesticide log' : 'Revise Operation Log')
-                : (loggingPesticide ? 'Log pesticide spray' : 'Record Farm Operation')}
+                ? (loggingWater ? 'Revise water supply' : loggingPesticide ? 'Revise pesticide log' : 'Revise work log')
+                : (loggingWater ? 'Log water supply' : loggingPesticide ? 'Log pesticide spray' : 'Log work')}
             </h2>
+            <p className="text-xs text-zinc-500 mb-5">
+              {loggingPesticide
+                ? 'Enter pesticide name, quantity, and spray time. Date is saved automatically.'
+                : activityModalReturnTab
+                  ? 'Save to keep this entry, or press Back to return where you were.'
+                  : 'Fill the details below, or press Back to cancel.'}
+            </p>
 
             {formActError && <div className="p-3 bg-red-500/5 border border-red-500/20 text-xs text-red-400 rounded-lg mb-4">{formActError}</div>}
 
             <form onSubmit={handleActivitySubmit} className="space-y-4">
+              {!loggingPesticide && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Operation Date</label>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">{loggingWater ? 'Date' : 'Operation Date'}</label>
                   <input
                     type="date"
                     className="w-full bg-white border border-zinc-200 focus:border-emerald-700 rounded-lg py-2.5 px-3.5 text-sm text-zinc-800 outline-none"
@@ -3759,7 +4441,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Target Farm</label>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">{loggingWater ? 'Farm' : 'Target Farm'}</label>
                   <select
                     className="w-full bg-white border border-zinc-200 focus:border-emerald-700 rounded-lg py-2.5 px-3 text-sm text-zinc-800 outline-none"
                     value={formActFarmId}
@@ -3773,8 +4455,78 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                   </select>
                 </div>
               </div>
+              )}
 
-              {!loggingPesticide && (
+              {loggingPesticide && farms.length > 1 && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Farm</label>
+                  <select
+                    className="w-full bg-white border border-zinc-200 focus:border-emerald-700 rounded-lg py-2.5 px-3 text-sm text-zinc-800 outline-none"
+                    value={formActFarmId}
+                    onChange={(e) => setFormActFarmId(e.target.value)}
+                    required
+                  >
+                    <option value="" disabled>Select Farm</option>
+                    {farms.map(f => (
+                      <option key={f.id} value={f.id.toString()}>{f.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {loggingWater ? (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Hours of water supplied</label>
+                  <input
+                    type="number"
+                    min="0.1"
+                    step="0.1"
+                    className="w-full bg-white border border-zinc-200 focus:border-emerald-700 rounded-lg py-2.5 px-3.5 text-sm text-zinc-800 outline-none"
+                    placeholder="e.g. 4"
+                    value={formActWaterHours}
+                    onChange={(e) => setFormActWaterHours(e.target.value)}
+                    required
+                  />
+                </div>
+              ) : loggingPesticide ? (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Pesticide name</label>
+                  <input
+                    type="text"
+                    className="w-full bg-white border border-zinc-200 focus:border-emerald-700 rounded-lg py-2.5 px-3.5 text-sm text-zinc-800 outline-none"
+                    placeholder="E.g. Mancozeb"
+                    value={formActPestName}
+                    onChange={(e) => setFormActPestName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Quantity</label>
+                    <input
+                      type="text"
+                      className="w-full bg-white border border-zinc-200 focus:border-emerald-700 rounded-lg py-2.5 px-3.5 text-sm text-zinc-800 outline-none"
+                      placeholder="E.g. 20 ml / 10 L"
+                      value={formActPestQty}
+                      onChange={(e) => setFormActPestQty(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Spray time</label>
+                    <input
+                      type="time"
+                      className="w-full bg-white border border-zinc-200 focus:border-emerald-700 rounded-lg py-2.5 px-3.5 text-sm text-zinc-800 outline-none"
+                      value={clockTimeValue(formActPestTime)}
+                      onChange={(e) => setFormActPestTime(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+              ) : (
+                <>
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Activity Type</label>
                 <select
@@ -3788,16 +4540,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                   ))}
                 </select>
               </div>
-              )}
 
-              {/* Pesticide Application Inputs */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Pesticide Name</label>
                   <input
                     type="text"
                     className="w-full bg-white border border-zinc-200 focus:border-emerald-700 rounded-lg py-2 px-2.5 text-xs text-zinc-800 outline-none"
-                    placeholder={loggingPesticide ? 'E.g. Mancozeb' : 'E.g. None'}
+                    placeholder="E.g. None"
                     value={formActPestName}
                     onChange={(e) => setFormActPestName(e.target.value)}
                   />
@@ -3807,7 +4557,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                   <input
                     type="text"
                     className="w-full bg-white border border-zinc-200 focus:border-emerald-700 rounded-lg py-2 px-2.5 text-xs text-zinc-800 outline-none"
-                    placeholder={loggingPesticide ? 'E.g. 20 ml / 10 L' : 'E.g. None'}
+                    placeholder="E.g. None"
                     value={formActPestQty}
                     onChange={(e) => setFormActPestQty(e.target.value)}
                   />
@@ -3817,7 +4567,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                   <input
                     type="text"
                     className="w-full bg-white border border-zinc-200 focus:border-emerald-700 rounded-lg py-2 px-2.5 text-xs text-zinc-800 outline-none"
-                    placeholder={loggingPesticide ? 'E.g. Morning' : 'E.g. None'}
+                    placeholder="E.g. None"
                     value={formActPestTime}
                     onChange={(e) => setFormActPestTime(e.target.value)}
                   />
@@ -3828,17 +4578,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                 <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Attached Log Details</label>
                 <textarea
                   className="w-full min-h-[100px] bg-white border border-zinc-200 focus:border-emerald-700 rounded-lg py-2.5 px-3.5 text-sm text-zinc-800 placeholder-zinc-400 outline-none resize-none"
-                  placeholder={loggingPesticide ? 'E.g. Sprayed north block after rain. Covered fruit and leaves.' : 'E.g., Drip line inspection complete. Added nitrogen mix in quadrant C.'}
+                  placeholder="E.g., Drip line inspection complete. Added nitrogen mix in quadrant C."
                   value={formActNotes}
                   onChange={(e) => setFormActNotes(e.target.value)}
                   required
                 />
               </div>
+                </>
+              )}
 
               <div className="flex justify-end gap-3 pt-3">
-                <button type="button" onClick={() => { setIsActivityModalOpen(false); setLoggingPesticide(false); }} className="px-4 py-2 border border-zinc-200 bg-white rounded-lg text-xs font-semibold text-zinc-600 hover:text-zinc-900 cursor-pointer">Cancel</button>
+                <button type="button" onClick={closeActivityModal} disabled={formActSubmitting} className="px-4 py-2 border border-zinc-200 bg-white rounded-lg text-xs font-semibold text-zinc-600 hover:text-zinc-900 cursor-pointer inline-flex items-center gap-1.5">
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Back
+                </button>
                 <button type="submit" disabled={formActSubmitting} className="df-btn df-btn-primary text-xs">
-                  {formActSubmitting ? 'Logging...' : editingActivity ? 'Save' : loggingPesticide ? 'Log Spray' : 'Log Activity'}
+                  {formActSubmitting
+                    ? 'Saving…'
+                    : editingActivity
+                      ? 'Save'
+                      : loggingWater
+                        ? 'Log water supply'
+                        : loggingPesticide
+                          ? 'Log Spray'
+                          : 'Log work'}
                 </button>
               </div>
             </form>
@@ -4025,6 +4788,57 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
         </div>
       )}
 
+      {/* GALLERY DISEASE RESULT */}
+      {galleryDetectResult && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setGalleryDetectResult(null)}
+        >
+          <div
+            className="w-full max-w-lg glass-card rounded-2xl border border-zinc-200 bg-white p-5 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Photo check</p>
+                <h3 className="text-lg font-bold text-zinc-900 mt-1">
+                  {formatPredictedDisease(galleryDetectResult.disease)}
+                </h3>
+                <p className="text-sm text-emerald-800 font-semibold mt-1">
+                  {(galleryDetectResult.confidence * 100).toFixed(1)}% confidence
+                  {galleryDetectResult.severity ? ` · severity ${galleryDetectResult.severity}` : ''}
+                </p>
+              </div>
+              <button type="button" className="p-1 text-zinc-400 hover:text-zinc-800" onClick={() => setGalleryDetectResult(null)}>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {galleryDetectResult.heatmap && (
+              <img
+                src={`/api/uploads/${galleryDetectResult.heatmap}`}
+                alt="Grad-CAM++ heatmap"
+                className="w-full h-44 object-cover rounded-xl border border-zinc-200"
+              />
+            )}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="df-btn df-btn-primary"
+                onClick={() => {
+                  setGalleryDetectResult(null);
+                  setActiveTab('diseases');
+                }}
+              >
+                Open Detect Disease
+              </button>
+              <button type="button" className="df-btn df-btn-ghost" onClick={() => setGalleryDetectResult(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* LIGHTBOX OVERLAY */}
       {activeLightboxImage && (
         <div
@@ -4068,15 +4882,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
                   <span className="text-zinc-600">Rainfall: <strong className="text-zinc-800">{Number(activeLightboxImage.rainfall)}mm</strong></span>
                 </div>
               )}
+
+              {activeLightboxImage.filename && activeLightboxImage.id != null && activeLightboxImage.temp === undefined && (
+                <div className="mt-3 pt-3 border-t border-zinc-200 flex justify-center">
+                  <button
+                    type="button"
+                    className="df-btn df-btn-ghost"
+                    disabled={analyzingGalleryId === activeLightboxImage.id}
+                    onClick={() => handleDetectGalleryDisease(activeLightboxImage as GalleryImage)}
+                  >
+                    <Bug className="w-4 h-4" />
+                    <span>
+                      {analyzingGalleryId === activeLightboxImage.id ? 'Detecting…' : 'Detect disease'}
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
-      {/* FLOATING CHATBOT WIDGET */}
+      {!isViewer && (
       <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
         {/* Expanded Chat Dialog */}
         <AnimatePresence>
-          {isChatOpen && (
+          {isChatOpen && isPremium && (
             <motion.div
               initial={{ opacity: 0, y: 15, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -4178,7 +5008,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
         <button
           onClick={() => {
             if (!isPremium) {
-              goToPlans();
+              openPrimaryTab('assistant');
               return;
             }
             setIsChatOpen(!isChatOpen);
@@ -4193,13 +5023,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
           <MessageSquare className="w-5 h-5" />
         </button>
       </div>
+      )}
 
       {isReportModalOpen && (
-        <div className="modal-backdrop fixed inset-0 z-50 bg-[#000]/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-panel w-full max-w-[440px] rounded-2xl shadow-2xl p-6 relative">
-            <button onClick={() => setIsReportModalOpen(false)} className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-900 cursor-pointer" aria-label="Close"><X className="w-5 h-5" /></button>
+        <div
+          className="modal-backdrop fixed inset-0 z-50 bg-[#000]/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !reportSubmitting) closeReportModal();
+          }}
+          role="presentation"
+        >
+          <div className="glass-panel w-full max-w-[440px] rounded-2xl shadow-2xl p-6 relative" role="dialog" aria-modal="true" aria-label="Upload lab report">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <button
+                type="button"
+                onClick={closeReportModal}
+                disabled={reportSubmitting}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-600 hover:text-zinc-900 cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={closeReportModal}
+                disabled={reportSubmitting}
+                className="text-zinc-500 hover:text-zinc-900 cursor-pointer"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
             <h2 className="text-lg font-bold text-zinc-900 mb-1">Upload lab report</h2>
-            <p className="text-xs text-zinc-500 mb-5">Add a soil fertility or pH PDF. You can open it from Reports after upload.</p>
+            <p className="text-xs text-zinc-500 mb-5">Add a soil fertility or pH PDF. Press Back anytime to return without uploading.</p>
             <form onSubmit={handleLabReportUpload} className="space-y-4">
               <div className="grid grid-cols-2 gap-2">
                 {(['soil', 'ph'] as const).map((kind) => (
@@ -4250,7 +5106,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ token, onLogout }) => {
               </label>
               {reportError && <p className="text-sm text-red-700">{reportError}</p>}
               <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setIsReportModalOpen(false)} className="df-btn df-btn-ghost">Cancel</button>
+                <button type="button" onClick={closeReportModal} disabled={reportSubmitting} className="df-btn df-btn-ghost inline-flex items-center gap-1.5">
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Back
+                </button>
                 <button type="submit" disabled={reportSubmitting} className="df-btn df-btn-primary">
                   {reportSubmitting ? 'Uploading…' : 'Upload PDF'}
                 </button>

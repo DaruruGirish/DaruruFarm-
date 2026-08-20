@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Request, UseGuards, ForbiddenException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { ExpenseService } from './expense.service';
@@ -13,11 +13,18 @@ import { User } from '../auth/user.entity';
 export class ExpenseController {
   constructor(private readonly expenseService: ExpenseService) {}
 
+  private assertExpenseAccess(req: any) {
+    if (req.user?.role === 'viewer') {
+      throw new ForbiddenException('Expense records are not available for inspector logins.');
+    }
+  }
+
   @Post()
   @ApiOperation({ summary: 'Log a new expense' })
   @ApiResponse({ status: 201, description: 'Expense logged successfully.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   create(@Body() createExpenseDto: CreateExpenseDto, @Request() req: any) {
+    this.assertExpenseAccess(req);
     const user = { id: req.user.id } as User;
     return this.expenseService.create(createExpenseDto, user);
   }
@@ -27,6 +34,7 @@ export class ExpenseController {
   @ApiResponse({ status: 200, description: 'List of expenses retrieved.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   findAll(@Request() req: any) {
+    this.assertExpenseAccess(req);
     const user = { id: req.user.id } as User;
     return this.expenseService.findAll(user);
   }
@@ -37,6 +45,7 @@ export class ExpenseController {
   @ApiResponse({ status: 404, description: 'Expense not found.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   findOne(@Param('id') id: string, @Request() req: any) {
+    this.assertExpenseAccess(req);
     const user = { id: req.user.id } as User;
     return this.expenseService.findOne(+id, user);
   }
@@ -47,6 +56,7 @@ export class ExpenseController {
   @ApiResponse({ status: 404, description: 'Expense not found.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   update(@Param('id') id: string, @Body() updateExpenseDto: UpdateExpenseDto, @Request() req: any) {
+    this.assertExpenseAccess(req);
     const user = { id: req.user.id } as User;
     return this.expenseService.update(+id, updateExpenseDto, user);
   }
@@ -57,6 +67,7 @@ export class ExpenseController {
   @ApiResponse({ status: 404, description: 'Expense not found.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   remove(@Param('id') id: string, @Request() req: any) {
+    this.assertExpenseAccess(req);
     const user = { id: req.user.id } as User;
     return this.expenseService.remove(+id, user);
   }

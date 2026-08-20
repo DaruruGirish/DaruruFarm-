@@ -1,5 +1,7 @@
-export const PREMIUM_PRICE_INR = 3000;
+export const PREMIUM_PRICE_INR = 5000;
 export const PREMIUM_PERIOD_MONTHS = 12;
+/** New accounts get Premium access for this many days, then premium features lock. */
+export const FREE_TRIAL_DAYS = 2;
 
 /** Owner / demo accounts that always keep Premium. */
 export const COMPLIMENTARY_PREMIUM_EMAILS = ['darurubunny@gmail.com'];
@@ -20,15 +22,15 @@ export const PLAN_FEATURES = {
   ],
   premium: [
     'Unlimited farm holdings',
-    'Photo disease analysis (leaf and fruit)',
+    'Photo disease analysis (new model coming next)',
     'High-confidence disease tracking',
-    'Weather outbreak risk',
     'Location-based weather telemetry',
     'Pesticide spray logs',
     'Soil and pH PDF lab reports',
-    'Farm gallery with analyze-from-photo',
+    'Farm gallery',
     'AI assistant on your farm records',
     'Multi-holding filters',
+    'Inspector (view-only) logins',
     'Priority support',
   ],
 };
@@ -52,6 +54,12 @@ export function premiumUntilFromNow(): Date {
 export function premiumUntilFrom(start: Date): Date {
   const until = new Date(start);
   until.setMonth(until.getMonth() + PREMIUM_PERIOD_MONTHS);
+  return until;
+}
+
+export function freeTrialUntilFromNow(): Date {
+  const until = new Date();
+  until.setDate(until.getDate() + FREE_TRIAL_DAYS);
   return until;
 }
 

@@ -16,14 +16,14 @@ export class ContactService {
     email: string,
     subject: string,
     message: string,
-    user: User,
+    user?: User | null,
   ): Promise<ContactInquiry> {
     const inquiry = this.contactRepository.create({
       name,
       email,
       subject,
       message,
-      user,
+      user: user ?? null,
     });
     return this.contactRepository.save(inquiry);
   }

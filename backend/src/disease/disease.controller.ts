@@ -34,31 +34,38 @@ const imageUpload = FileInterceptor('image', {
 export class DiseaseController {
   constructor(private readonly diseaseService: DiseaseService) {}
 
-  @Post('predict')
-  @ApiOperation({ summary: 'Predict disease outbreak risk from weather telemetry' })
-  @ApiResponse({ status: 200, description: 'Risk prediction result' })
-  async predictRisk(
-    @Body() data: {
-      rainfall_mm: number;
-      humidity: number;
-      temperature: number;
-      recent_disease_count?: number;
-      recent_high_severity_count?: number;
-      irrigation_liters?: number;
-      pesticide_spray_count?: number;
-      disease_log_count?: number;
-      pest_inspection_count?: number;
-    },
-  ) {
-    return this.diseaseService.predictDiseaseRisk(data);
+  @Get('predictions')
+  @ApiOperation({ summary: 'List saved vision predictions' })
+  findPredictions(@Request() req: any) {
+    const user = { id: req.user.id } as User;
+    return this.diseaseService.findPredictions(user);
   }
 
-  @Post('vision/:plantPart')
-  @ApiOperation({ summary: 'Classify a pomegranate leaf or fruit photo with EfficientNet' })
+  @Post('predict')
+  @ApiOperation({ summary: 'Pomegranate bacterial blight risk from live Open-Meteo weather history' })
+  predictBacterialBlight(@Body('farmId') farmId: string, @Request() req: any) {
+    const parsed = parseInt(farmId, 10);
+    if (!Number.isFinite(parsed)) {
+      throw new BadRequestException('farmId is required');
+    }
+    const user = { id: req.user.id } as User;
+    return this.diseaseService.predictPomegranateBacterialBlight(parsed, user);
+  }
+
+  @Post('analyze-fruit')
+  @ApiOperation({ summary: 'Analyze a pomegranate fruit photo (DenseNet121 + Grad-CAM++ + HBDS severity)' })
   @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        image: { type: 'string', format: 'binary' },
+        farmId: { type: 'string' },
+      },
+    },
+  })
   @UseInterceptors(imageUpload)
-  async predictVision(
-    @Param('plantPart') plantPart: string,
+  analyzeFruit(
     @UploadedFile() file: any,
     @Body('farmId') farmId: string,
     @Request() req: any,
@@ -66,27 +73,24 @@ export class DiseaseController {
     if (!file) {
       throw new BadRequestException('Image file is required');
     }
+    const parsedFarmId = farmId ? parseInt(farmId, 10) : NaN;
     const user = { id: req.user.id } as User;
-    const parsedFarmId = farmId ? parseInt(farmId, 10) : undefined;
-    return this.diseaseService.predictFromUpload(file.filename, plantPart, parsedFarmId, user);
+    return this.diseaseService.analyzeFruit(
+      file.filename,
+      Number.isFinite(parsedFarmId) ? parsedFarmId : null,
+      user,
+    );
   }
 
-  @Post('vision-gallery/:id')
-  @ApiOperation({ summary: 'Run disease detection on an existing gallery photo' })
-  async predictGallery(
-    @Param('id') id: string,
-    @Body() body: { plantPart: string; farmId?: number },
-    @Request() req: any,
-  ) {
+  @Post('analyze-gallery/:id')
+  @ApiOperation({ summary: 'Run fruit disease AI on an existing gallery photo' })
+  analyzeGallery(@Param('id') id: string, @Request() req: any) {
+    const parsed = parseInt(id, 10);
+    if (!Number.isFinite(parsed)) {
+      throw new BadRequestException('Gallery image id is required');
+    }
     const user = { id: req.user.id } as User;
-    return this.diseaseService.predictFromGallery(+id, body.plantPart, body.farmId, user);
-  }
-
-  @Get('predictions')
-  @ApiOperation({ summary: 'List saved vision predictions' })
-  findPredictions(@Request() req: any) {
-    const user = { id: req.user.id } as User;
-    return this.diseaseService.findPredictions(user);
+    return this.diseaseService.analyzeGalleryImage(parsed, user);
   }
 
   @Post('upload')

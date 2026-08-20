@@ -25,6 +25,9 @@ export class DailyActivity {
   @Column({ nullable: true })
   pesticideTime: string;
 
+  @Column('decimal', { precision: 6, scale: 2, nullable: true })
+  waterHours: number | null;
+
   @ManyToOne(() => Farm, { onDelete: 'CASCADE' })
   farm: Farm;
 

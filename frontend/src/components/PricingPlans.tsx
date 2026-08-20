@@ -37,6 +37,8 @@ function loadRazorpay(): Promise<void> {
   });
 }
 
+export { loadRazorpay };
+
 export const PremiumGate: React.FC<{
   locked: boolean;
   onUpgrade: () => void;

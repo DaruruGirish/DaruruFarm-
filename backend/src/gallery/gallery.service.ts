@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { GalleryImage } from './gallery-image.entity';
 import { Farm } from '../farm/farm.entity';
 import { User } from '../auth/user.entity';
+import { assertPremiumAccess } from '../auth/premium-access';
 import * as fs from 'fs';
 import { join } from 'path';
 
@@ -14,10 +15,18 @@ export class GalleryService {
     private galleryRepository: Repository<GalleryImage>,
     @InjectRepository(Farm)
     private farmRepository: Repository<Farm>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
   ) {}
+
+  private async requirePremium(userId: number, featureLabel: string) {
+    const owner = await this.userRepository.findOne({ where: { id: userId } });
+    assertPremiumAccess(owner, featureLabel);
+  }
 
   // Save image upload details to database
   async create(filename: string, caption: string, farmId: number | undefined, user: User): Promise<GalleryImage> {
+    await this.requirePremium(user.id, 'Gallery');
     let farm: Farm | null = null;
     if (farmId) {
       farm = await this.farmRepository.findOne({
@@ -40,6 +49,7 @@ export class GalleryService {
 
   // Get all uploaded images for the user
   async findAll(user: User): Promise<GalleryImage[]> {
+    await this.requirePremium(user.id, 'Gallery');
     return this.galleryRepository.find({
       where: { user: { id: user.id } },
       relations: { farm: true },

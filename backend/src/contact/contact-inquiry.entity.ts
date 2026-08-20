@@ -21,6 +21,6 @@ export class ContactInquiry {
   @CreateDateColumn({ type: 'timestamp' })
   submittedAt: Date;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  user: User;
+  @ManyToOne(() => User, { onDelete: 'CASCADE', nullable: true })
+  user: User | null;
 }

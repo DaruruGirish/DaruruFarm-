@@ -1,0 +1,15 @@
+__pycache__
+*.pyc
+*.pyo
+.venv
+venv
+pomegranate_dataset
+_train_split
+_tools
+heatmaps
+*.log
+scripts
+rag_recommend.py
+README.md
+.git
+.gitignore

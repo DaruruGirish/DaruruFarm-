@@ -21,4 +21,7 @@ export class CreateActivityDto {
 
   @ApiProperty({ example: '08:30 AM', required: false })
   pesticideTime?: string;
+
+  @ApiProperty({ example: 4.5, required: false, description: 'Hours of water supplied (Water Supply logs)' })
+  waterHours?: number;
 }

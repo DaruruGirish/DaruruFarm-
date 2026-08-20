@@ -1,14 +1,59 @@
-# Terraform
-.terraform/
-*.tfstate
-*.tfstate.*
-
-# Secrets and local env
+# Secrets and local env — never commit
 .env
+.env.*
+!.env.example
+!.env.docker.example
 backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
 
-# ML weights and downloaded images
+# Dependencies and build output
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+backend/dist/
+frontend/dist/
+
+# User uploads stay on the server, not in git
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Production ML inference only (no training data)
+ml/*
+!ml/pomegranate/
+!ml/pomegranate/**
+ml/pomegranate/pomegranate_dataset/
+ml/pomegranate/_train_split/
+ml/pomegranate/_tools/
+ml/pomegranate/heatmaps/
+ml/pomegranate/**/__pycache__/
+ml/pomegranate/**/.venv/
+ml/pomegranate/**/venv/
+ml/pomegranate/**/*.log
+ml/pomegranate/**/.ipynb_checkpoints/
+
+# Weights / experimental formats not used by fruit pipeline
 *.pth
-ml/pomegranate_disease/dataset/**/*.jpg
-ml/pomegranate_disease/dataset/**/*.png
-ml/pomegranate_disease/dataset/**/*.jpeg
+*.pt
+*.onnx
+
+# Large / local-only junk — do not push
+DaruruFarms_Pomegranate_5_Images/
+DaruruFarms_Pomegranate_5_Images.zip
+ARR-2023-Pomegranate-Disease-Using-DL-and-RAG-Based-LLM-950c5d3/
+Desktop/
+improve_the_quality_of_the_vid.mp4
+*.pem
+*.rar
+*.mp4
+!frontend/public/**
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
