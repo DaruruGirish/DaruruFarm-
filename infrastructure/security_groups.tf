@@ -1,4 +1,6 @@
 resource "aws_security_group" "alb" {
+  count = var.enable_alb ? 1 : 0
+
   name        = "${local.name_prefix}-alb-sg"
   description = "ALB ingress from internet"
   vpc_id      = aws_vpc.this.id
@@ -36,12 +38,26 @@ resource "aws_security_group" "ec2" {
   description = "EC2 app host - traffic from ALB only"
   vpc_id      = aws_vpc.this.id
 
-  ingress {
-    description     = "App HTTP from ALB"
-    from_port       = 80
-    to_port         = 80
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
+  dynamic "ingress" {
+    for_each = var.enable_alb ? [1] : []
+    content {
+      description     = "App HTTP from ALB"
+      from_port       = 80
+      to_port         = 80
+      protocol        = "tcp"
+      security_groups = [aws_security_group.alb[0].id]
+    }
+  }
+
+  dynamic "ingress" {
+    for_each = var.enable_alb ? [] : [1]
+    content {
+      description = "App HTTP direct (free-tier mode, no ALB)"
+      from_port   = 80
+      to_port     = 80
+      protocol    = "tcp"
+      cidr_blocks = var.allowed_http_cidrs
+    }
   }
 
   dynamic "ingress" {

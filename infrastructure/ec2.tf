@@ -4,11 +4,11 @@ resource "aws_instance" "app" {
   subnet_id                   = aws_subnet.public[0].id
   vpc_security_group_ids      = [aws_security_group.ec2.id]
   iam_instance_profile        = aws_iam_instance_profile.ec2.name
-  key_name                    = var.ec2_key_name
+  key_name                    = var.ec2_key_name != "" ? var.ec2_key_name : null
   associate_public_ip_address = true
 
   root_block_device {
-    volume_size = 40
+    volume_size = var.ec2_root_volume_gb
     volume_type = "gp3"
     encrypted   = true
   }
@@ -38,9 +38,15 @@ resource "aws_instance" "app" {
   tags = {
     Name = "${local.name_prefix}-ec2"
   }
+
+  lifecycle {
+    ignore_changes = [ami, user_data]
+  }
 }
 
 resource "aws_eip" "app" {
+  count = var.enable_eip ? 1 : 0
+
   domain   = "vpc"
   instance = aws_instance.app.id
 

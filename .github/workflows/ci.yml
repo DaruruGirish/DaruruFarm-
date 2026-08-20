@@ -15,7 +15,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  AWS_REGION: ap-south-2
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  PROJECT_NAME: ${{ vars.PROJECT_NAME }}
 
 jobs:
   build:
@@ -26,6 +27,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Require GitHub variables
+        run: |
+          set -euo pipefail
+          test -n "${{ vars.AWS_REGION }}" || (echo "Missing repo variable AWS_REGION" && exit 1)
+          test -n "${{ vars.PROJECT_NAME }}" || (echo "Missing repo variable PROJECT_NAME" && exit 1)
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -91,7 +98,7 @@ jobs:
       - name: Build Docker images
         env:
           DOCKER_BUILDKIT: "1"
-          DB_PASSWORD: daruru_root
+          DB_PASSWORD: ci_placeholder
           MYSQL_APP_USER: daruru
           DB_DATABASE: daruru_farm
           JWT_SECRET: ci_only_jwt_secret_not_for_production
@@ -113,20 +120,23 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Set image URIs
+      - name: Resolve image URIs from AWS account + project name
         id: images
         run: |
-          ACCOUNT=${{ secrets.AWS_ACCOUNT_ID }}
-          REG=${{ env.AWS_REGION }}
-          echo "frontend=$ACCOUNT.dkr.ecr.$REG.amazonaws.com/darurufarm-frontend" >> "$GITHUB_OUTPUT"
-          echo "backend=$ACCOUNT.dkr.ecr.$REG.amazonaws.com/darurufarm-backend" >> "$GITHUB_OUTPUT"
-          echo "ml=$ACCOUNT.dkr.ecr.$REG.amazonaws.com/darurufarm-ml" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+          REG="${{ vars.AWS_REGION }}"
+          PROJ="${{ vars.PROJECT_NAME }}"
+          echo "frontend=${ACCOUNT}.dkr.ecr.${REG}.amazonaws.com/${PROJ}-frontend" >> "$GITHUB_OUTPUT"
+          echo "backend=${ACCOUNT}.dkr.ecr.${REG}.amazonaws.com/${PROJ}-backend" >> "$GITHUB_OUTPUT"
+          echo "ml=${ACCOUNT}.dkr.ecr.${REG}.amazonaws.com/${PROJ}-ml" >> "$GITHUB_OUTPUT"
+          echo "ec2_name_tag=${PROJ}-prod-ec2" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -164,22 +174,59 @@ jobs:
             ${{ steps.images.outputs.ml }}:latest
             ${{ steps.images.outputs.ml }}:${{ github.sha }}
 
-      - name: Deploy on EC2 via SSM
-        env:
-          INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+      - name: Resolve EC2 instance
+        id: ec2
         run: |
           set -euo pipefail
-          if [ -z "${INSTANCE_ID}" ]; then
+          INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
+          if [ -z "$INSTANCE_ID" ]; then
             INSTANCE_ID=$(aws ec2 describe-instances \
-              --filters "Name=tag:Name,Values=darurufarm-prod-ec2" "Name=instance-state-name,Values=running" \
+              --filters "Name=tag:Name,Values=${{ steps.images.outputs.ec2_name_tag }}" "Name=instance-state-name,Values=running,stopped" \
               --query "Reservations[0].Instances[0].InstanceId" --output text)
           fi
-          echo "Deploying to $INSTANCE_ID"
+          test -n "$INSTANCE_ID" && test "$INSTANCE_ID" != "None"
+          echo "instance_id=$INSTANCE_ID" >> "$GITHUB_OUTPUT"
+          STATE=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query "Reservations[0].Instances[0].State.Name" --output text)
+          echo "state=$STATE" >> "$GITHUB_OUTPUT"
+
+      - name: Start EC2 if stopped
+        if: steps.ec2.outputs.state == 'stopped'
+        run: |
+          set -euo pipefail
+          aws ec2 start-instances --instance-ids "${{ steps.ec2.outputs.instance_id }}"
+          aws ec2 wait instance-running --instance-ids "${{ steps.ec2.outputs.instance_id }}"
+          # Wait for SSM agent
+          for i in $(seq 1 30); do
+            STATUS=$(aws ssm describe-instance-information \
+              --filters "Key=InstanceIds,Values=${{ steps.ec2.outputs.instance_id }}" \
+              --query "InstanceInformationList[0].PingStatus" --output text || true)
+            if [ "$STATUS" = "Online" ]; then exit 0; fi
+            sleep 10
+          done
+          echo "SSM agent not online in time" && exit 1
+
+      - name: Ensure RDS is available
+        run: |
+          set -euo pipefail
+          DB_ID="${{ vars.RDS_INSTANCE_ID }}"
+          if [ -z "$DB_ID" ]; then
+            DB_ID=$(aws rds describe-db-instances --query "DBInstances[?contains(DBInstanceIdentifier, '${{ vars.PROJECT_NAME }}')].DBInstanceIdentifier | [0]" --output text)
+          fi
+          STATUS=$(aws rds describe-db-instances --db-instance-identifier "$DB_ID" --query "DBInstances[0].DBInstanceStatus" --output text)
+          if [ "$STATUS" = "stopped" ]; then
+            aws rds start-db-instance --db-instance-identifier "$DB_ID"
+            aws rds wait db-instance-available --db-instance-identifier "$DB_ID"
+          fi
+
+      - name: Deploy on EC2 via SSM
+        run: |
+          set -euo pipefail
+          INSTANCE_ID="${{ steps.ec2.outputs.instance_id }}"
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --comment "DaruruFarm deploy ${{ github.sha }}" \
-            --parameters 'commands=["/usr/local/bin/darurufarm-deploy"]' \
+            --parameters 'commands=["/usr/local/bin/darurufarm-deploy || (sleep 30 && /usr/local/bin/darurufarm-deploy)"]' \
             --query "Command.CommandId" --output text)
           echo "SSM CommandId=$COMMAND_ID"
           aws ssm wait command-executed --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" || true
@@ -188,3 +235,12 @@ jobs:
             --instance-id "$INSTANCE_ID" \
             --query "{Status:Status,Stdout:StandardOutputContent,Stderr:StandardErrorContent}" \
             --output json
+
+      - name: Print public IP for smoke test
+        run: |
+          set -euo pipefail
+          IP=$(aws ec2 describe-instances --instance-ids "${{ steps.ec2.outputs.instance_id }}" \
+            --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
+          echo "APP_URL=http://$IP"
+          echo "### Test URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "http://$IP" >> "$GITHUB_STEP_SUMMARY"

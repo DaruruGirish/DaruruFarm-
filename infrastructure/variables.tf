@@ -23,7 +23,7 @@ variable "vpc_cidr" {
 }
 
 variable "public_subnet_cidrs" {
-  description = "Public subnet CIDRs (2 AZs required for ALB)"
+  description = "Public subnet CIDRs (2 AZs if ALB enabled)"
   type        = list(string)
   default     = ["10.20.1.0/24", "10.20.2.0/24"]
 }
@@ -35,7 +35,7 @@ variable "private_subnet_cidrs" {
 }
 
 variable "ec2_instance_type" {
-  description = "EC2 type (must be free-tier eligible on this account; m7i-flex.large has 8GB for ML)"
+  description = "Free-tier eligible instance type with enough RAM for ML"
   type        = string
   default     = "m7i-flex.large"
 }
@@ -46,8 +46,14 @@ variable "ec2_key_name" {
   default     = "darurufarm"
 }
 
+variable "ec2_root_volume_gb" {
+  description = "Root EBS size (free tier typically allows 30 GB)"
+  type        = number
+  default     = 30
+}
+
 variable "db_instance_class" {
-  description = "RDS instance class"
+  description = "RDS instance class (free-tier eligible)"
   type        = string
   default     = "db.t4g.micro"
 }
@@ -64,14 +70,26 @@ variable "db_username" {
   default     = "daruru"
 }
 
+variable "enable_alb" {
+  description = "Create ALB (costs money; keep false on free tier). Required for custom domain HTTPS."
+  type        = bool
+  default     = false
+}
+
+variable "enable_eip" {
+  description = "Attach Elastic IP (charges when instance is stopped). Prefer false on free tier."
+  type        = bool
+  default     = false
+}
+
 variable "domain_name" {
-  description = "Optional custom domain (enables Route53 + ACM HTTPS). Leave empty to use ALB HTTP DNS only."
+  description = "Optional custom domain (requires enable_alb=true for ACM/HTTPS)"
   type        = string
   default     = ""
 }
 
 variable "create_route53_zone" {
-  description = "Create a new public hosted zone for domain_name (set false if zone already exists)"
+  description = "Create a new public hosted zone for domain_name"
   type        = bool
   default     = true
 }
@@ -83,7 +101,13 @@ variable "route53_zone_id" {
 }
 
 variable "allowed_ssh_cidr" {
-  description = "CIDR allowed to SSH to EC2 (prefer your IP). Empty disables SSH ingress."
+  description = "CIDR allowed to SSH to EC2. Empty disables SSH ingress."
   type        = string
   default     = ""
+}
+
+variable "allowed_http_cidrs" {
+  description = "CIDRs allowed to hit the app on EC2:80 when ALB is disabled"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
 }

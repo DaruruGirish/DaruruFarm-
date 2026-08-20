@@ -2,12 +2,12 @@ locals {
   name_prefix = "${var.project_name}-${var.environment}"
   azs         = slice(data.aws_availability_zones.available.names, 0, 2)
 
-  enable_custom_domain = var.domain_name != ""
+  enable_custom_domain = var.domain_name != "" && var.enable_alb
   zone_id              = local.enable_custom_domain ? (var.create_route53_zone ? aws_route53_zone.this[0].zone_id : var.route53_zone_id) : null
 
-  common_tags = {
-    Name = local.name_prefix
-  }
+  ecr_frontend_name = "${var.project_name}-frontend"
+  ecr_backend_name  = "${var.project_name}-backend"
+  ecr_ml_name       = "${var.project_name}-ml"
 }
 
 data "aws_availability_zones" "available" {

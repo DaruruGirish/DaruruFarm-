@@ -9,7 +9,7 @@ S3_BUCKET="${s3_bucket}"
 APP_DIR=/opt/darurufarm
 
 dnf update -y
-dnf install -y docker jq amazon-cloudwatch-agent
+dnf install -y docker jq amazon-cloudwatch-agent awscli
 systemctl enable --now docker
 usermod -aG docker ec2-user
 
@@ -21,24 +21,25 @@ chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 mkdir -p "$APP_DIR"
 cd "$APP_DIR"
 
-aws secretsmanager get-secret-value \
-  --secret-id "$SECRET_ARN" \
-  --region "$REGION" \
-  --query SecretString \
-  --output text > /etc/darurufarm-secrets.json
-chmod 600 /etc/darurufarm-secrets.json
+refresh_env_from_secrets() {
+  aws secretsmanager get-secret-value \
+    --secret-id "$SECRET_ARN" \
+    --region "$REGION" \
+    --query SecretString \
+    --output text > /etc/darurufarm-secrets.json
+  chmod 600 /etc/darurufarm-secrets.json
 
-DB_HOST=$(jq -r .DB_HOST /etc/darurufarm-secrets.json)
-DB_PORT=$(jq -r .DB_PORT /etc/darurufarm-secrets.json)
-DB_USERNAME=$(jq -r .DB_USERNAME /etc/darurufarm-secrets.json)
-DB_PASSWORD=$(jq -r .DB_PASSWORD /etc/darurufarm-secrets.json)
-DB_DATABASE=$(jq -r .DB_DATABASE /etc/darurufarm-secrets.json)
-JWT_SECRET=$(jq -r .JWT_SECRET /etc/darurufarm-secrets.json)
-GOOGLE_CLIENT_ID=$(jq -r .GOOGLE_CLIENT_ID /etc/darurufarm-secrets.json)
-RAZORPAY_KEY_ID=$(jq -r .RAZORPAY_KEY_ID /etc/darurufarm-secrets.json)
-RAZORPAY_KEY_SECRET=$(jq -r .RAZORPAY_KEY_SECRET /etc/darurufarm-secrets.json)
+  DB_HOST=$(jq -r .DB_HOST /etc/darurufarm-secrets.json)
+  DB_PORT=$(jq -r .DB_PORT /etc/darurufarm-secrets.json)
+  DB_USERNAME=$(jq -r .DB_USERNAME /etc/darurufarm-secrets.json)
+  DB_PASSWORD=$(jq -r .DB_PASSWORD /etc/darurufarm-secrets.json)
+  DB_DATABASE=$(jq -r .DB_DATABASE /etc/darurufarm-secrets.json)
+  JWT_SECRET=$(jq -r .JWT_SECRET /etc/darurufarm-secrets.json)
+  GOOGLE_CLIENT_ID=$(jq -r '.GOOGLE_CLIENT_ID // empty' /etc/darurufarm-secrets.json)
+  RAZORPAY_KEY_ID=$(jq -r '.RAZORPAY_KEY_ID // empty' /etc/darurufarm-secrets.json)
+  RAZORPAY_KEY_SECRET=$(jq -r '.RAZORPAY_KEY_SECRET // empty' /etc/darurufarm-secrets.json)
 
-cat > "$APP_DIR/.env" <<EOF
+  cat > "$APP_DIR/.env" <<EOF
 DB_HOST=$DB_HOST
 DB_PORT=$DB_PORT
 DB_USERNAME=$DB_USERNAME
@@ -54,7 +55,10 @@ POMEGRANATE_INFER_URL=http://ml:8001
 TYPEORM_SYNCHRONIZE=true
 NODE_ENV=production
 EOF
-chmod 600 "$APP_DIR/.env"
+  chmod 600 "$APP_DIR/.env"
+}
+
+refresh_env_from_secrets
 
 cat > "$APP_DIR/docker-compose.yml" <<EOF
 services:
@@ -69,6 +73,12 @@ services:
       - uploads:/app/uploads
     expose:
       - "8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 180s
     logging:
       driver: awslogs
       options:
@@ -81,7 +91,8 @@ services:
     image: ${ecr_backend}:latest
     restart: unless-stopped
     depends_on:
-      - ml
+      ml:
+        condition: service_started
     env_file:
       - .env
     environment:
@@ -92,6 +103,12 @@ services:
       - uploads:/app/uploads
     expose:
       - "3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
     logging:
       driver: awslogs
       options:
@@ -107,6 +124,12 @@ services:
       - backend
     ports:
       - "80:80"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
     logging:
       driver: awslogs
       options:
@@ -127,19 +150,52 @@ docker compose pull
 docker compose up -d
 set -e
 
-cat > /usr/local/bin/darurufarm-deploy <<'DEPLOY'
+cat > /usr/local/bin/darurufarm-deploy <<DEPLOY
 #!/bin/bash
 set -euo pipefail
 APP_DIR=/opt/darurufarm
-cd "$APP_DIR"
-TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-REGION=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/placement/region)
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-aws ecr get-login-password --region "$REGION" \
-  | docker login --username AWS --password-stdin "$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com"
+cd "\$APP_DIR"
+TOKEN=\$(curl -sX PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+REGION=\$(curl -s -H "X-aws-ec2-metadata-token: \$TOKEN" http://169.254.169.254/latest/meta-data/placement/region)
+ACCOUNT_ID=\$(aws sts get-caller-identity --query Account --output text)
+SECRET_ARN="${secret_arn}"
+S3_BUCKET="${s3_bucket}"
+
+aws secretsmanager get-secret-value --secret-id "\$SECRET_ARN" --region "\$REGION" --query SecretString --output text > /etc/darurufarm-secrets.json
+chmod 600 /etc/darurufarm-secrets.json
+DB_HOST=\$(jq -r .DB_HOST /etc/darurufarm-secrets.json)
+DB_PORT=\$(jq -r .DB_PORT /etc/darurufarm-secrets.json)
+DB_USERNAME=\$(jq -r .DB_USERNAME /etc/darurufarm-secrets.json)
+DB_PASSWORD=\$(jq -r .DB_PASSWORD /etc/darurufarm-secrets.json)
+DB_DATABASE=\$(jq -r .DB_DATABASE /etc/darurufarm-secrets.json)
+JWT_SECRET=\$(jq -r .JWT_SECRET /etc/darurufarm-secrets.json)
+GOOGLE_CLIENT_ID=\$(jq -r '.GOOGLE_CLIENT_ID // empty' /etc/darurufarm-secrets.json)
+RAZORPAY_KEY_ID=\$(jq -r '.RAZORPAY_KEY_ID // empty' /etc/darurufarm-secrets.json)
+RAZORPAY_KEY_SECRET=\$(jq -r '.RAZORPAY_KEY_SECRET // empty' /etc/darurufarm-secrets.json)
+cat > "\$APP_DIR/.env" <<EOF
+DB_HOST=\$DB_HOST
+DB_PORT=\$DB_PORT
+DB_USERNAME=\$DB_USERNAME
+DB_PASSWORD=\$DB_PASSWORD
+DB_DATABASE=\$DB_DATABASE
+JWT_SECRET=\$JWT_SECRET
+GOOGLE_CLIENT_ID=\$GOOGLE_CLIENT_ID
+RAZORPAY_KEY_ID=\$RAZORPAY_KEY_ID
+RAZORPAY_KEY_SECRET=\$RAZORPAY_KEY_SECRET
+S3_BUCKET=\$S3_BUCKET
+AWS_REGION=\$REGION
+POMEGRANATE_INFER_URL=http://ml:8001
+TYPEORM_SYNCHRONIZE=true
+NODE_ENV=production
+EOF
+chmod 600 "\$APP_DIR/.env"
+
+aws ecr get-login-password --region "\$REGION" \\
+  | docker login --username AWS --password-stdin "\$ACCOUNT_ID.dkr.ecr.\$REGION.amazonaws.com"
 docker compose pull
 docker compose up -d --remove-orphans
 docker image prune -f
+docker compose ps
 DEPLOY
 chmod +x /usr/local/bin/darurufarm-deploy
 

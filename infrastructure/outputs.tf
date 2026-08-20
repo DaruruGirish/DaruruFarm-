@@ -15,16 +15,20 @@ output "ec2_instance_id" {
 }
 
 output "ec2_public_ip" {
-  value = aws_eip.app.public_ip
+  value = var.enable_eip ? aws_eip.app[0].public_ip : aws_instance.app.public_ip
+}
+
+output "app_url" {
+  value = (
+    local.enable_custom_domain ? "https://${var.domain_name}" :
+    var.enable_alb ? "http://${aws_lb.app[0].dns_name}" :
+    "http://${var.enable_eip ? aws_eip.app[0].public_ip : aws_instance.app.public_ip}"
+  )
+  description = "URL to open the app (IP changes on stop/start when EIP is disabled)"
 }
 
 output "alb_dns_name" {
-  value       = aws_lb.app.dns_name
-  description = "Open http://<alb_dns_name> until a custom domain is configured"
-}
-
-output "alb_url" {
-  value = local.enable_custom_domain ? "https://${var.domain_name}" : "http://${aws_lb.app.dns_name}"
+  value = var.enable_alb ? aws_lb.app[0].dns_name : null
 }
 
 output "rds_endpoint" {
@@ -47,6 +51,14 @@ output "ecr_ml_url" {
   value = aws_ecr_repository.ml.repository_url
 }
 
+output "ecr_repository_names" {
+  value = {
+    frontend = local.ecr_frontend_name
+    backend  = local.ecr_backend_name
+    ml       = local.ecr_ml_name
+  }
+}
+
 output "secrets_arn" {
   value = aws_secretsmanager_secret.app.arn
 }
@@ -60,6 +72,11 @@ output "route53_name_servers" {
   description = "Point your domain registrar to these NS records when using a custom domain"
 }
 
-output "note_no_nat" {
-  value = "NAT Gateway omitted: EC2 is in a public subnet; RDS stays private. Saves ~$32/month."
+output "free_tier_notes" {
+  value = [
+    "ALB disabled (enable_alb=false) to avoid hourly ELB charges",
+    "EIP disabled (enable_eip=false) so stopped instances do not accrue idle EIP charges",
+    "NAT Gateway omitted",
+    "Stop EC2 + RDS when not testing",
+  ]
 }
