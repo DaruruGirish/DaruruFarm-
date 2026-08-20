@@ -7,7 +7,8 @@ WORKDIR /app
 
 COPY requirements.docker.txt ./requirements.txt
 # Base image already includes TensorFlow; install only inference extras.
-RUN pip install --no-cache-dir -r requirements.txt
+# --ignore-installed: TF image ships distutils blinker that pip cannot uninstall.
+RUN pip install --no-cache-dir --ignore-installed -r requirements.txt
 
 COPY infer.py serve.py ./
 COPY models ./models
