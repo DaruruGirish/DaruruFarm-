@@ -1,0 +1,146 @@
+#!/bin/bash
+set -euo pipefail
+exec > >(tee /var/log/darurufarm-user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
+
+REGION="${aws_region}"
+ACCOUNT_ID="${account_id}"
+SECRET_ARN="${secret_arn}"
+S3_BUCKET="${s3_bucket}"
+APP_DIR=/opt/darurufarm
+
+dnf update -y
+dnf install -y docker jq amazon-cloudwatch-agent
+systemctl enable --now docker
+usermod -aG docker ec2-user
+
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl -fsSL "https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64" \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+mkdir -p "$APP_DIR"
+cd "$APP_DIR"
+
+aws secretsmanager get-secret-value \
+  --secret-id "$SECRET_ARN" \
+  --region "$REGION" \
+  --query SecretString \
+  --output text > /etc/darurufarm-secrets.json
+chmod 600 /etc/darurufarm-secrets.json
+
+DB_HOST=$(jq -r .DB_HOST /etc/darurufarm-secrets.json)
+DB_PORT=$(jq -r .DB_PORT /etc/darurufarm-secrets.json)
+DB_USERNAME=$(jq -r .DB_USERNAME /etc/darurufarm-secrets.json)
+DB_PASSWORD=$(jq -r .DB_PASSWORD /etc/darurufarm-secrets.json)
+DB_DATABASE=$(jq -r .DB_DATABASE /etc/darurufarm-secrets.json)
+JWT_SECRET=$(jq -r .JWT_SECRET /etc/darurufarm-secrets.json)
+GOOGLE_CLIENT_ID=$(jq -r .GOOGLE_CLIENT_ID /etc/darurufarm-secrets.json)
+RAZORPAY_KEY_ID=$(jq -r .RAZORPAY_KEY_ID /etc/darurufarm-secrets.json)
+RAZORPAY_KEY_SECRET=$(jq -r .RAZORPAY_KEY_SECRET /etc/darurufarm-secrets.json)
+
+cat > "$APP_DIR/.env" <<EOF
+DB_HOST=$DB_HOST
+DB_PORT=$DB_PORT
+DB_USERNAME=$DB_USERNAME
+DB_PASSWORD=$DB_PASSWORD
+DB_DATABASE=$DB_DATABASE
+JWT_SECRET=$JWT_SECRET
+GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
+RAZORPAY_KEY_ID=$RAZORPAY_KEY_ID
+RAZORPAY_KEY_SECRET=$RAZORPAY_KEY_SECRET
+S3_BUCKET=$S3_BUCKET
+AWS_REGION=$REGION
+POMEGRANATE_INFER_URL=http://ml:8001
+TYPEORM_SYNCHRONIZE=true
+NODE_ENV=production
+EOF
+chmod 600 "$APP_DIR/.env"
+
+cat > "$APP_DIR/docker-compose.yml" <<EOF
+services:
+  ml:
+    image: ${ecr_ml}:latest
+    restart: unless-stopped
+    environment:
+      POMEGRANATE_INFER_HOST: "0.0.0.0"
+      POMEGRANATE_INFER_PORT: "8001"
+      TF_CPP_MIN_LOG_LEVEL: "3"
+    volumes:
+      - uploads:/app/uploads
+    expose:
+      - "8001"
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${aws_region}
+        awslogs-group: ${log_group}
+        awslogs-stream: ml
+        awslogs-create-group: "false"
+
+  backend:
+    image: ${ecr_backend}:latest
+    restart: unless-stopped
+    depends_on:
+      - ml
+    env_file:
+      - .env
+    environment:
+      PORT: "3000"
+      POMEGRANATE_INFER_URL: http://ml:8001
+      POMEGRANATE_ML_ROOT: /app/ml/pomegranate
+    volumes:
+      - uploads:/app/uploads
+    expose:
+      - "3000"
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${aws_region}
+        awslogs-group: ${log_group}
+        awslogs-stream: backend
+        awslogs-create-group: "false"
+
+  frontend:
+    image: ${ecr_frontend}:latest
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${aws_region}
+        awslogs-group: ${log_group}
+        awslogs-stream: frontend
+        awslogs-create-group: "false"
+
+volumes:
+  uploads:
+EOF
+
+aws ecr get-login-password --region "$REGION" \
+  | docker login --username AWS --password-stdin "$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com"
+
+set +e
+docker compose pull
+docker compose up -d
+set -e
+
+cat > /usr/local/bin/darurufarm-deploy <<'DEPLOY'
+#!/bin/bash
+set -euo pipefail
+APP_DIR=/opt/darurufarm
+cd "$APP_DIR"
+TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+REGION=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/placement/region)
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+aws ecr get-login-password --region "$REGION" \
+  | docker login --username AWS --password-stdin "$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com"
+docker compose pull
+docker compose up -d --remove-orphans
+docker image prune -f
+DEPLOY
+chmod +x /usr/local/bin/darurufarm-deploy
+
+echo "user-data complete"

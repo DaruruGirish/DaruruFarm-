@@ -1,0 +1,14 @@
+# Terraform local state / lock
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+*.pem
+secrets.auto.tfvars

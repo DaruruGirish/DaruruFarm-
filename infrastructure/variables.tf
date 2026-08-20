@@ -1,0 +1,89 @@
+variable "aws_region" {
+  description = "AWS region"
+  type        = string
+  default     = "ap-south-2"
+}
+
+variable "project_name" {
+  description = "Short project name used in resource names"
+  type        = string
+  default     = "darurufarm"
+}
+
+variable "environment" {
+  description = "Environment name"
+  type        = string
+  default     = "prod"
+}
+
+variable "vpc_cidr" {
+  description = "VPC CIDR"
+  type        = string
+  default     = "10.20.0.0/16"
+}
+
+variable "public_subnet_cidrs" {
+  description = "Public subnet CIDRs (2 AZs required for ALB)"
+  type        = list(string)
+  default     = ["10.20.1.0/24", "10.20.2.0/24"]
+}
+
+variable "private_subnet_cidrs" {
+  description = "Private subnet CIDRs for RDS (no NAT)"
+  type        = list(string)
+  default     = ["10.20.11.0/24", "10.20.12.0/24"]
+}
+
+variable "ec2_instance_type" {
+  description = "EC2 type (must be free-tier eligible on this account; m7i-flex.large has 8GB for ML)"
+  type        = string
+  default     = "m7i-flex.large"
+}
+
+variable "ec2_key_name" {
+  description = "Existing EC2 key pair name for SSH emergency access"
+  type        = string
+  default     = "darurufarm"
+}
+
+variable "db_instance_class" {
+  description = "RDS instance class"
+  type        = string
+  default     = "db.t4g.micro"
+}
+
+variable "db_name" {
+  description = "MySQL database name"
+  type        = string
+  default     = "daruru_farm"
+}
+
+variable "db_username" {
+  description = "MySQL master username"
+  type        = string
+  default     = "daruru"
+}
+
+variable "domain_name" {
+  description = "Optional custom domain (enables Route53 + ACM HTTPS). Leave empty to use ALB HTTP DNS only."
+  type        = string
+  default     = ""
+}
+
+variable "create_route53_zone" {
+  description = "Create a new public hosted zone for domain_name (set false if zone already exists)"
+  type        = bool
+  default     = true
+}
+
+variable "route53_zone_id" {
+  description = "Existing hosted zone ID when create_route53_zone=false"
+  type        = string
+  default     = ""
+}
+
+variable "allowed_ssh_cidr" {
+  description = "CIDR allowed to SSH to EC2 (prefer your IP). Empty disables SSH ingress."
+  type        = string
+  default     = ""
+}
